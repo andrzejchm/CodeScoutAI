@@ -1,0 +1,66 @@
+{
+	"folders": [
+		{
+			"name": "root",
+			"path": "."
+		},
+		{
+			"path": "core"
+		},
+		{
+			"path": "cli"
+		},
+		{
+			"path": "plugins"
+		},
+		{
+			"path": "tests"
+		},
+		{
+			"path": "examples"
+		},
+	],
+	"recommendations": [
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"charliermarsh.ruff",
+		"ms-python.mypy-type-checker",
+		"tamasfe.even-better-toml"
+	],
+	"settings": {
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll": "explicit",
+			"source.organizeImports": "explicit"
+		},
+		"python.analysis.typeCheckingMode": "off",
+		"python.analysis.generateWithTypeAnnotation": true,
+		"python.analysis.diagnosticMode": "workspace",
+		"python.analysis.inlayHints.functionReturnTypes": true,
+		"python.analysis.inlayHints.callArgumentNames": "all",
+		"python.analysis.exclude": [
+			"scraper/venv",
+			"notifier/venv",
+			"db/venv",
+			"config/venv",
+			"**/opt/homebrew/**/*",
+			"**/.venv/bin/**/*"
+		],
+		"python.analysis.ignore": [
+			"**/scraper/venv/**/*",
+			"**/notifier/venv/**/*",
+			"**/db/venv/**/*",
+			"**/config/venv/**/*",
+			".venv"
+		],
+		"ruff.enable": true,
+		"[python]": {
+			"editor.defaultFormatter": "charliermarsh.ruff",
+			"editor.formatOnSave": true,
+			"editor.rulers": [100]
+		},
+		"mypy.runUsingActiveInterpreter": true,
+		"ruff.configurationPreference": "filesystemFirst",
+		"ruff.lineLength": 100
+	}
+}

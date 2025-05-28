@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies for core module
+    cmds:
+      - poetry install
+  
+  lock:
+    desc: Update lock file for core module
+    cmds:
+      - poetry lock

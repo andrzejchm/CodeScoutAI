@@ -1,0 +1,75 @@
+.aider*
+.env
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm
+.yarn
+
+# Environment
+.env
+.env.*
+!.env.example
+.env.development
+.env.production
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# Supabase
+**/supabase/.temp
+**/supabase/.env
+
+# Testing
+coverage/
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Poetry
+.venv/
+woodpecker.db

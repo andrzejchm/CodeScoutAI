@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "tests"
+version = "0.1.0"
+description = "Tests for AI Code Reviewer"
+authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
+license = "Business Source License 1.1"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.13, <4.0"
+pytest = ">=8.3.5,<9.0.0"
+pytest-cov = ">=6.1.1,<7.0.0"
+core = { path = "../core", develop = true }
+cli = { path = "../cli", develop = true }
+plugins = { path = "../plugins", develop = true }
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+mypy_path = "."
+explicit_package_bases = true
+plugins = ['pydantic.mypy']

@@ -1,0 +1,57 @@
+version: '3'
+
+vars:
+  PYTHON: python3
+  DOCKER_COMPOSE: docker-compose
+
+includes:
+  core:
+    taskfile: ./core/Taskfile.yml
+    dir: ./core
+  cli:
+    taskfile: ./cli/Taskfile.yml
+    dir: ./cli
+  plugins:
+    taskfile: ./plugins/Taskfile.yml
+    dir: ./plugins
+  tests:
+    taskfile: ./tests/Taskfile.yml
+    dir: ./tests
+
+tasks:
+  setup:
+    desc: Set up the development environment
+    cmds:
+      - echo "Setting up development environment"
+      - task: install
+  
+  install:
+    desc: Install dependencies for all projects
+    cmds:
+      - task: core:install
+      - task: cli:install
+      - task: plugins:install
+      - task: tests:install
+  
+  lock:
+    desc: Update lock files for all projects
+    cmds:
+      - task: core:lock
+      - task: cli:lock
+      - task: plugins:lock
+      - task: tests:lock
+  
+  format:
+    desc: Format code with ruff
+    cmds:
+      - ruff format .
+  
+  lint:
+    desc: Lint code with ruff
+    cmds:
+      - ruff check .
+  
+  test:
+    desc: Run tests
+    cmds:
+      - task: tests:test

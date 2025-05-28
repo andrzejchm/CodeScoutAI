@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies for CLI module
+    cmds:
+      - poetry install
+  
+  lock:
+    desc: Update lock file for CLI module
+    cmds:
+      - poetry lock

@@ -1,0 +1,17 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies for tests module
+    cmds:
+      - poetry install
+  
+  lock:
+    desc: Update lock file for tests module
+    cmds:
+      - poetry lock
+  
+  test:
+    desc: Run tests
+    cmds:
+      - pytest

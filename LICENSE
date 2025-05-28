@@ -1,0 +1,30 @@
+Business Source License 1.1
+
+Licensor: Andrzej Chmielewski
+
+Licensed Work: "Job Opportunity Finder", including all source code, documentation, and related materials found at https://github.com/andrzejchm/CodeScoutAI
+
+Additional Use Grant: You may use, modify, and distribute this Licensed Work for non-production purposes, including evaluation, personal development, research, or contribution.
+
+Change Date: May 19, 2030
+
+Change License: Apache License, Version 2.0
+
+Terms
+
+The Licensed Work is provided under the terms of the Business Source License 1.1 (the “License”).
+The License permits you to use, copy, modify, and distribute the Licensed Work,
+but prohibits any production use or commercial use of the Licensed Work, except as explicitly permitted by the Licensor.
+
+Production use includes, without limitation:
+- Using the Licensed Work to provide any service to any third party,
+- Using the Licensed Work internally or externally in any commercial or revenue-generating capacity,
+- Hosting the Licensed Work as part of a SaaS or PaaS offering,
+- Distributing or embedding the Licensed Work in a commercial product.
+
+On the Change Date, this License will automatically convert to the Change License, which will thereafter govern your use of the Licensed Work.
+
+This License does not grant you any rights under any patents or trademarks of the Licensor.
+
+For more information about the Business Source License 1.1, please visit: https://mariadb.com/bsl11
+

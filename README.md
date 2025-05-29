@@ -51,29 +51,14 @@ Modern codebases are complex, and automated checks like linters and tests only s
 ## 📂 Folder Structure
 
 ```
-/code-reviewer
-/core
-    diff_analyzer.py                # Diff and file change detection
-    ai_reviewer.py                  # LangChain-powered AI module
-    diff_providers/
-        git_diff_provider.py        # Interface/abstract class for diff providers (strategy pattern)
-        local_git_diff_provider.py      # Local Git diff implementation
-        github_diff_provider.py     # GitHub PR diff implementation
-        bitbucket_diff_provider.py  # (Planned) Bitbucket diff implementation
-    rules_loader.py                 # Parses Markdown best practices
-    command_runner.py               # Executes linting/testing commands
-    plugin_manager.py               # Plugin system for additional steps
-/cli
-    main.py                         # CLI entry point (click)
-/plugins
-    example_plugin.py               # Example plugin for custom checks
-/tests
-    ...                             # Unit tests
-/examples
-    best_practices.md               # Sample Markdown rules file
+/code_scout                         # Main Python package
+    /src
+        /core                       # Core functionality
+        /cli                        # Command-line interface
+        /plugins                    # Plugin system for extensibility
+    /tests                          # Unit and integration tests
 README.md
-pyproject.toml                      # Project dependencies
-requirements.txt
+Taskfile.yml                        # Task runner configuration
 ```
 
 ---

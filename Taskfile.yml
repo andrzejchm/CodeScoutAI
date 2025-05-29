@@ -5,18 +5,9 @@ vars:
   DOCKER_COMPOSE: docker-compose
 
 includes:
-  core:
-    taskfile: ./core/Taskfile.yml
-    dir: ./core
-  cli:
-    taskfile: ./cli/Taskfile.yml
-    dir: ./cli
-  plugins:
-    taskfile: ./plugins/Taskfile.yml
-    dir: ./plugins
-  tests:
-    taskfile: ./tests/Taskfile.yml
-    dir: ./tests
+  code_scout:
+    taskfile: ./code_scout/Taskfile.yml
+    dir: ./code_scout
 
 tasks:
   setup:

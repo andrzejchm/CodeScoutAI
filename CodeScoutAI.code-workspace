@@ -5,16 +5,7 @@
 			"path": "."
 		},
 		{
-			"path": "core"
-		},
-		{
-			"path": "cli"
-		},
-		{
-			"path": "plugins"
-		},
-		{
-			"path": "tests"
+			"path": "code_scout"
 		}
 	],
 	"recommendations": [
@@ -40,29 +31,21 @@
 			"**/cli/src/**/*",
 			"**/plugins/src/**/*",
 			"**/tests/src/**/*",
-			"**/examples/src/**/*"
 		],
 		"python.analysis.exclude": [
-			"core/venv",
-			"cli/venv",
-			"plugins/venv",
+			"code_scout/venv",
 			"tests/venv",
 			"**/opt/homebrew/**/*",
 			"**/.venv/bin/**/*"
 		],
 		"python.analysis.ignore": [
-			"**/core/venv/**/*",
-			"**/cli/venv/**/*",
-			"**/plugins/venv/**/*",
+			"**/code_scout/venv/**/*",
 			"**/tests/venv/**/*",
 			".venv"
 		],
 		"python.analysis.extraPaths": [
-			"core/src",
-			"cli/src",
-			"plugins/src",
+			"code_scout/src",
 			"tests/src",
-			"examples/src"
 		],
 		"ruff.enable": true,
 		"[python]": {

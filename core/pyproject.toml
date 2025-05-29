@@ -5,7 +5,7 @@ description = "Core functionality for AI Code Reviewer"
 authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
 license = "Business Source License 1.1"
 readme = "README.md"
-packages = [{ include = "src" }]
+packages = [{ include = "core", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13, <4.0"
@@ -22,8 +22,3 @@ types-requests = "^2.32.0.20250515"
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.mypy]
-mypy_path = "."
-explicit_package_bases = true
-plugins = ['pydantic.mypy']

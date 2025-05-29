@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "CLI interface for AI Code Reviewer"
 authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
 license = "Business Source License 1.1"
-packages = [{ include = "src" }]
+packages = [{ include = "cli", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13, <4.0"

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Tests for AI Code Reviewer"
 authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
 license = "Business Source License 1.1"
-packages = [{include = "src"}]
+packages = [{ include = "tests", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13, <4.0"
@@ -13,6 +13,9 @@ pytest-cov = ">=6.1.1,<7.0.0"
 core = { path = "../core", develop = true }
 cli = { path = "../cli", develop = true }
 plugins = { path = "../plugins", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

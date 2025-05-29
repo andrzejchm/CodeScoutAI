@@ -4,11 +4,14 @@ version = "0.1.0"
 description = "Plugins for AI Code Reviewer"
 authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
 license = "Business Source License 1.1"
-packages = [{ include = "src" }]
+packages = [{ include = "plugins", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13, <4.0"
 core = { path = "../core", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

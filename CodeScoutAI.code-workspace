@@ -15,10 +15,7 @@
 		},
 		{
 			"path": "tests"
-		},
-		{
-			"path": "examples"
-		},
+		}
 	],
 	"recommendations": [
 		"ms-python.python",
@@ -38,20 +35,34 @@
 		"python.analysis.diagnosticMode": "workspace",
 		"python.analysis.inlayHints.functionReturnTypes": true,
 		"python.analysis.inlayHints.callArgumentNames": "all",
+		"python.analysis.include": [
+			"**/core/src/**/*",
+			"**/cli/src/**/*",
+			"**/plugins/src/**/*",
+			"**/tests/src/**/*",
+			"**/examples/src/**/*"
+		],
 		"python.analysis.exclude": [
-			"scraper/venv",
-			"notifier/venv",
-			"db/venv",
-			"config/venv",
+			"core/venv",
+			"cli/venv",
+			"plugins/venv",
+			"tests/venv",
 			"**/opt/homebrew/**/*",
 			"**/.venv/bin/**/*"
 		],
 		"python.analysis.ignore": [
-			"**/scraper/venv/**/*",
-			"**/notifier/venv/**/*",
-			"**/db/venv/**/*",
-			"**/config/venv/**/*",
+			"**/core/venv/**/*",
+			"**/cli/venv/**/*",
+			"**/plugins/venv/**/*",
+			"**/tests/venv/**/*",
 			".venv"
+		],
+		"python.analysis.extraPaths": [
+			"core/src",
+			"cli/src",
+			"plugins/src",
+			"tests/src",
+			"examples/src"
 		],
 		"ruff.enable": true,
 		"[python]": {

@@ -10,39 +10,27 @@ includes:
     dir: ./code_scout
 
 tasks:
-  setup:
-    desc: Set up the development environment
-    cmds:
-      - echo "Setting up development environment"
-      - task: install
-  
   install:
-    desc: Install dependencies for all projects
+    desc: Install dependencies
     cmds:
-      - task: core:install
-      - task: cli:install
-      - task: plugins:install
-      - task: tests:install
+      - task: code_scout:install
   
   lock:
-    desc: Update lock files for all projects
+    desc: Update lock files
     cmds:
-      - task: core:lock
-      - task: cli:lock
-      - task: plugins:lock
-      - task: tests:lock
+      - task: code_scout:lock
   
   format:
     desc: Format code with ruff
     cmds:
-      - ruff format .
+      - task: code_scout:format
   
   lint:
     desc: Lint code with ruff
     cmds:
-      - ruff check .
+      - task: code_scout:lint
   
   test:
     desc: Run tests
     cmds:
-      - task: tests:test
+      - task: code_scout:test

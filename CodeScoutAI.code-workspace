@@ -8,53 +8,21 @@
 			"path": "code_scout"
 		}
 	],
-	"recommendations": [
-		"ms-python.python",
-		"ms-python.vscode-pylance",
-		"charliermarsh.ruff",
-		"ms-python.mypy-type-checker",
-		"tamasfe.even-better-toml"
-	],
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-python.vscode-pylance",
+			"charliermarsh.ruff",
+			"ms-python.mypy-type-checker",
+			"tamasfe.even-better-toml"
+		]
+	},
 	"settings": {
 		"editor.formatOnSave": true,
 		"editor.codeActionsOnSave": {
 			"source.fixAll": "explicit",
 			"source.organizeImports": "explicit"
 		},
-		"python.analysis.typeCheckingMode": "off",
-		"python.analysis.generateWithTypeAnnotation": true,
-		"python.analysis.diagnosticMode": "workspace",
-		"python.analysis.inlayHints.functionReturnTypes": true,
-		"python.analysis.inlayHints.callArgumentNames": "all",
-		"python.analysis.include": [
-			"**/core/src/**/*",
-			"**/cli/src/**/*",
-			"**/plugins/src/**/*",
-			"**/tests/src/**/*",
-		],
-		"python.analysis.exclude": [
-			"code_scout/venv",
-			"tests/venv",
-			"**/opt/homebrew/**/*",
-			"**/.venv/bin/**/*"
-		],
-		"python.analysis.ignore": [
-			"**/code_scout/venv/**/*",
-			"**/tests/venv/**/*",
-			".venv"
-		],
-		"python.analysis.extraPaths": [
-			"code_scout/src",
-			"tests/src",
-		],
-		"ruff.enable": true,
-		"[python]": {
-			"editor.defaultFormatter": "charliermarsh.ruff",
-			"editor.formatOnSave": true,
-			"editor.rulers": [100]
-		},
-		"mypy.runUsingActiveInterpreter": true,
-		"ruff.configurationPreference": "filesystemFirst",
-		"ruff.lineLength": 100
+		"ruff.configurationPreference": "filesystemFirst"
 	}
 }

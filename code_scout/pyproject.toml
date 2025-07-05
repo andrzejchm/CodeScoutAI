@@ -5,8 +5,8 @@ description = "AI Code Reviewer"
 authors = ["Andrzej Chmielewski <andrzejchm@gmail.com>"]
 license = "Business Source License 1.1"
 packages = [
-    { include = "cli", from = "src" },
     { include = "core", from = "src" },
+    { include = "cli", from = "src" },
     { include = "plugins", from = "src" }
 ]
 
@@ -31,7 +31,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
-python_version = 3.13
+python_version = "3.13"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true

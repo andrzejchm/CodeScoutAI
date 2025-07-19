@@ -3,10 +3,11 @@ from typing import List
 
 import git
 
+from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
 
 
-class LocalGitDiffProvider:
+class GitDiffProvider(DiffProvider):
     def __init__(
         self,
         repo_path: str,
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     target_branch = "HEAD~1"
 
     try:
-        diff_provider = LocalGitDiffProvider(
+        diff_provider = GitDiffProvider(
             repo_path=repo_path, source=source_branch, target=target_branch
         )
         diffs = diff_provider.get_diff()

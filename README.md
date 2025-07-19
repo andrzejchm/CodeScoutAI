@@ -97,3 +97,32 @@ python cli/main.py --diff HEAD~1 HEAD --rules examples/best_practices.md --run-c
 # Run on GitHub PR
 python cli/main.py --github-pr owner/repo/123 --rules examples/best_practices.md --run-commands
 ```
+
+---
+
+## How to Run
+
+This tool uses [Poetry](https://python-poetry.org/) for dependency management and [Typer](https://typer.tiangolo.com/) for building the command-line interface.
+
+To run this tool, follow these steps:
+
+1. **Install Poetry (if you haven't already):**
+
+    ```bash
+    curl -sSL https://install.python-poetry.org | python -
+    ```
+
+2. **Install Dependencies:**
+    Navigate to the `code_scout` directory and install the project dependencies:
+
+    ```bash
+    cd code_scout
+    poetry install
+    ```
+
+3.  **Run the CLI Tool:**
+    After installing the dependencies, you can run the tool directly:
+    ```bash
+    codescout [arguments]
+    ```
+    Replace `[arguments]` with the actual arguments for the tool.

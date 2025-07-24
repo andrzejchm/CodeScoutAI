@@ -11,50 +11,62 @@ from core.services.code_review_service import CodeReviewService
 app = typer.Typer()
 
 
+load_dotenv()
+
+
 @app.command()
 def review(  # noqa: PLR0913
     repo_path: str = typer.Argument(
-        "/Users/andrzejchm/Developer/andrzejchm/CodeScoutAI",
+        default="/Users/andrzejchm/Developer/andrzejchm/CodeScoutAI",
+        envvar="CODESCOUT_REPO_PATH",
         help="Path to the Git repository",
     ),
     source: str = typer.Option(
-        "HEAD",
+        default="HEAD",
+        envvar="CODESCOUT_SOURCE",
         help="Source branch or commit",
     ),
     target: str = typer.Option(
-        "HEAD~1",
+        default="HEAD~1",
+        envvar="CODESCOUT_TARGET",
         help="Target branch or commit",
     ),
+    staged: bool = typer.Option(
+        default=False,
+        envvar="CODESCOUT_STAGED",
+        help="Review only staged files",
+    ),
     model: str = typer.Option(
-        "openrouter/anthropic/claude-3.7-sonnet",
+        default="openrouter/anthropic/claude-sonnet-4",
         prompt=True,
+        envvar="CODESCOUT_MODEL",
         help="Model to use for code review (e.g., 'openrouter/anthropic/claude-3.7-sonnet')",
     ),
     openrouter_api_key: str = typer.Option(
-        None,
-        envvar="OPENROUTER_API_KEY",
-        help="API key for OpenRouter (can be set via OPENROUTER_API_KEY environment variable)",
+        default=None,
+        envvar="CODESCOUT_OPENROUTER_API_KEY",
+        help="API key for OpenRouter (can be set via CODESCOUT_OPENROUTER_API_KEY env variable)",
     ),
     openai_api_key: str = typer.Option(
-        None,
-        envvar="OPENAI_API_KEY",
-        help="API key for OpenAI (can be set via OPENAI_API_KEY environment variable)",
+        default=None,
+        envvar="CODESCOUT_OPENAI_API_KEY",
+        help="API key for OpenAI (can be set via CODESCOUT_OPENAI_API_KEY env variable)",
     ),
     claude_api_key: str = typer.Option(
-        None,
-        envvar="CLAUDE_API_KEY",
-        help="API key for Claude (can be set via CLAUDE_API_KEY environment variable)",
+        default=None,
+        envvar="CODESCOUT_CLAUDE_API_KEY",
+        help="API key for Claude (can be set via CODESCOUT_CLAUDE_API_KEY env variable)",
     ),
 ) -> None:
     """
     Shows the number of lines changed in the diff between two branches or commits.
     """
-    load_dotenv()
 
     git_diff_provider = GitDiffProvider(
         repo_path=repo_path,
         source=source,
         target=target,
+        staged=staged,
     )
 
     default_llm_provider = DefaultLLMProvider()
@@ -69,6 +81,7 @@ def review(  # noqa: PLR0913
             repo_path=repo_path,
             source=source,
             target=target,
+            staged=staged,
             model=model,
             openrouter_api_key=openrouter_api_key,
             openai_api_key=openai_api_key,

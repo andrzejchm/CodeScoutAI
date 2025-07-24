@@ -26,7 +26,7 @@ tasks:
       - task: code_scout:format
   
   lint:
-    desc: Lint code with ruff
+    desc: Lint code with ruff and mypy
     cmds:
       - task: code_scout:lint
   

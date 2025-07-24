@@ -84,45 +84,77 @@ The core review pipeline:
 
 ---
 
-## 📥 Get Started (Coming Soon)
-
-```bash
-git clone https://github.com/yourusername/ai-code-reviewer
-cd ai-code-reviewer
-pip install -r requirements.txt
-
-# Run on local diffs
-python cli/main.py --diff HEAD~1 HEAD --rules examples/best_practices.md --run-commands
-
-# Run on GitHub PR
-python cli/main.py --github-pr owner/repo/123 --rules examples/best_practices.md --run-commands
-```
-
----
-
-## How to Run
+## 🚀 Installation & Usage
 
 This tool uses [Poetry](https://python-poetry.org/) for dependency management and [Typer](https://typer.tiangolo.com/) for building the command-line interface.
 
-To run this tool, follow these steps:
+### Prerequisites
+
+- Python 3.13 or higher
+- Poetry (for dependency management)
+
+### Installation
 
 1. **Install Poetry (if you haven't already):**
 
-    ```bash
-    curl -sSL https://install.python-poetry.org | python -
-    ```
+   ```bash
+   curl -sSL https://install.python-poetry.org | python3 -
+   ```
 
-2. **Install Dependencies:**
-    Navigate to the `code_scout` directory and install the project dependencies:
+2. **Clone and install the project:**
 
-    ```bash
-    cd code_scout
-    poetry install
-    ```
+   ```bash
+   git clone <repository-url>
+   cd CodeScoutAI/code_scout
+   poetry install
+   ```
 
-3.  **Run the CLI Tool:**
-    After installing the dependencies, you can run the tool directly:
-    ```bash
-    codescout [arguments]
-    ```
-    Replace `[arguments]` with the actual arguments for the tool.
+   This installs all dependencies and makes the `codescout` command available within the Poetry virtual environment.
+
+### Running the CLI
+
+You have two options to run the `codescout` command:
+
+#### Option 1: Using Poetry (Recommended)
+
+Run commands through Poetry's virtual environment:
+
+```bash
+cd code_scout
+poetry run codescout --help
+poetry run codescout review --repo-path . --source HEAD~1 --target HEAD
+```
+
+#### Option 2: Activate the Virtual Environment
+
+Activate Poetry's virtual environment to run `codescout` directly:
+
+```bash
+cd code_scout
+poetry shell
+codescout --help
+codescout review --repo-path . --source HEAD~1 --target HEAD
+```
+
+### Basic Usage Examples
+
+```bash
+# Show help
+poetry run codescout --help
+
+# Review changes between commits
+poetry run codescout review --repo-path /path/to/repo --source HEAD~1 --target HEAD
+
+# Review current working directory changes
+poetry run codescout review --repo-path . --source HEAD~1 --target HEAD
+```
+
+### Configuration
+
+The CLI supports various options for customizing the review process. Use `poetry run codescout review --help` to see all available options including:
+
+- Repository path configuration
+- Source and target branch/commit specification
+- AI model selection
+- API keys (e.g., `CODESCOUT_OPENROUTER_API_KEY`, `CODESCOUT_OPENAI_API_KEY`, `CODESCOUT_CLAUDE_API_KEY`)
+- Output format options

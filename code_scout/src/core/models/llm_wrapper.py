@@ -1,5 +1,3 @@
-from typing import Any
-
 from langchain_core.language_models import BaseLanguageModel
 from pydantic import BaseModel
 
@@ -22,7 +20,7 @@ class LLMWrapper(BaseModel):
         Invoke the language model with a prompt.
         """
         result = self.model.invoke(prompt)
-        if hasattr(result, 'content'):
+        if hasattr(result, "content"):
             content = result.content
             return str(content) if content is not None else ""
         return str(result)

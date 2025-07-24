@@ -5,7 +5,7 @@ import typer
 from core.interfaces.diff_provider import DiffProvider
 from core.interfaces.llm_provider import LLMProvider
 from core.models.code_diff import CodeDiff
-from core.models.review_command_args import ReviewCommandArgs  # We'll still use this for LLM args
+from core.models.review_command_arg import ReviewCommandArgs  # We'll still use this for LLM args
 
 
 class CodeReviewService:
@@ -35,5 +35,9 @@ class CodeReviewService:
         diff: List[CodeDiff] = self.diff_provider.get_diff()
         typer.echo(f"Diff between {args.source} and {args.target} in {args.repo_path}:")
         for code_diff in diff:
-            typer.echo(f"File: {code_diff.file_path}, Change Type: {code_diff.change_type}")
+            # ai first, print the type change, then the file, then the old file
+            typer.echo(
+                f"Change Type: {code_diff.change_type}\tFile: {code_diff.file_path} \
+                \tOld File: {code_diff.old_file_path}",
+            )
         typer.echo(f"Total changes: {len(diff)} files modified.")

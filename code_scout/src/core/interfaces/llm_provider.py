@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from core.models.llm_wrapper import LLMWrapper
+from langchain_core.language_models import BaseLanguageModel
 
 
 class LLMProvider(ABC):
@@ -17,8 +17,8 @@ class LLMProvider(ABC):
         openrouter_api_key: Optional[str],
         openai_api_key: Optional[str],
         claude_api_key: Optional[str],
-    ) -> LLMWrapper:
+    ) -> BaseLanguageModel:
         """
-        Retrieves a wrapped Language Model instance based on the provided model string and API keys.
+        Retrieves a Language Model instance based on the provided model string and API keys.
         """
         pass

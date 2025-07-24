@@ -4,7 +4,7 @@ import typer
 from dotenv import load_dotenv
 
 from core.diff_providers.git_diff_provider import GitDiffProvider
-from core.llm_providers.default_llm_provider import DefaultLLMProvider
+from core.llm_providers.langchain_provider import LangChainProvider
 from core.models.review_command_args import ReviewCommandArgs
 from core.services.code_review_service import CodeReviewService
 
@@ -69,11 +69,11 @@ def review(  # noqa: PLR0913
         staged=staged,
     )
 
-    default_llm_provider = DefaultLLMProvider()
+    llm_provider = LangChainProvider()
 
     review_service = CodeReviewService(
         diff_provider=git_diff_provider,
-        llm_provider=default_llm_provider,
+        llm_provider=llm_provider,
     )
 
     review_service.review_code(

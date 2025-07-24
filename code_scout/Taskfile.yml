@@ -21,10 +21,10 @@ tasks:
       - poetry run ruff format .
 
   lint:
-    desc: Lint code with ruff and mypy
+    desc: Lint code with ruff and pyright
     cmds:
       - poetry run ruff check .
-      - poetry run mypy .
+      - pyright
 
   test:
     desc: Run tests

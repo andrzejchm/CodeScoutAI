@@ -28,29 +28,24 @@ langchain-anthropic = "^0.3.17"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.10"
-mypy = "^1.15.0"
 types-requests = "^2.32.0.20250515"
 pytest = ">=8.3.5,<9.0.0"
 pytest-cov = ">=6.1.1,<7.0.0"
+pyright = "^1.1.370"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.mypy]
-python_version = "3.13"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-strict_optional = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unused_ignores = true
-warn_unused_configs = true
-explicit_package_bases = false
-plugins = ['pydantic.mypy']
+[tool.pyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+exclude = ["**/__pycache__"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "All"
 
 [tool.ruff]
 target-version = "py313"

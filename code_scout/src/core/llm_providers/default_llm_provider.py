@@ -3,11 +3,11 @@ from typing import Optional
 
 import typer
 from langchain_anthropic import ChatAnthropic
-from langchain_core.language_models import BaseLanguageModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from core.interfaces.llm_provider import LLMProvider
+from core.models.llm_wrapper import LLMWrapper
 
 
 class DefaultLLMProvider(LLMProvider):
@@ -22,7 +22,7 @@ class DefaultLLMProvider(LLMProvider):
         openrouter_api_key: Optional[str],
         openai_api_key: Optional[str],
         claude_api_key: Optional[str],
-    ) -> BaseLanguageModel:
+    ) -> LLMWrapper:
         """
         Initializes and returns a Language Model based on the provided model string and API keys.
         """
@@ -36,10 +36,14 @@ class DefaultLLMProvider(LLMProvider):
                     "OPENROUTER_API_KEY environment variable."
                 )
                 raise typer.Exit(code=1)
-            return ChatOpenAI(
-                api_key=api_key,
-                base_url="https://openrouter.ai/api/v1",
-                model=model.split("/")[1],
+            return LLMWrapper(
+                model=ChatOpenAI(
+                    api_key=api_key,
+                    base_url="https://openrouter.ai/api/v1",
+                    model=model.split(sep="/")[1],
+                ),
+                context_length=8192,  # Common context length for many models
+                model_name=model,
             )
         elif model.startswith("openai/"):
             api_key = SecretStr(openai_api_key or os.getenv("OPENAI_API_KEY") or "")
@@ -49,7 +53,11 @@ class DefaultLLMProvider(LLMProvider):
                     "OPENAI_API_KEY environment variable."
                 )
                 raise typer.Exit(code=1)
-            return ChatOpenAI(api_key=api_key, model=model.split("/")[1])
+            return LLMWrapper(
+                model=ChatOpenAI(api_key=api_key, model=model.split("/")[1]),
+                context_length=8192,  # Common context length for many models
+                model_name=model,
+            )
         elif model.startswith("anthropic/"):
             api_key = SecretStr(claude_api_key or os.getenv("CLAUDE_API_KEY") or "")
             if not api_key:
@@ -58,11 +66,15 @@ class DefaultLLMProvider(LLMProvider):
                     " set CLAUDE_API_KEY environment variable."
                 )
                 raise typer.Exit(code=1)
-            return ChatAnthropic(
-                api_key=SecretStr(api_key),
-                model_name=model.split("/")[1],
-                timeout=60,  # Set a reasonable timeout for API calls
-                stop=["\n\n"],  # Stop generation on double newlines
+            return LLMWrapper(
+                model=ChatAnthropic(
+                    api_key=api_key,
+                    model_name=model.split("/")[1],
+                    timeout=60,  # Set a reasonable timeout for API calls
+                    stop=["\n\n"],  # Stop generation on double newlines
+                ),
+                context_length=8192,  # Common context length for many models
+                model_name=model,
             )
         else:
             typer.echo(

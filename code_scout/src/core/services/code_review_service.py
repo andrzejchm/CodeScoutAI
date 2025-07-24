@@ -5,7 +5,7 @@ import typer
 from core.interfaces.diff_provider import DiffProvider
 from core.interfaces.llm_provider import LLMProvider
 from core.models.code_diff import CodeDiff
-from core.models.review_command_arg import ReviewCommandArgs  # We'll still use this for LLM args
+from core.models.review_command_args import ReviewCommandArgs
 
 
 class CodeReviewService:

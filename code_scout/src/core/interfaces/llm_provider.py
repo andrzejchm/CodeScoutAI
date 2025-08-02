@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from langchain_core.language_models import BaseLanguageModel
+
+from core.models.review_command_args import ReviewCommandArgs
 
 
 class LLMProvider(ABC):
@@ -13,10 +14,7 @@ class LLMProvider(ABC):
     @abstractmethod
     def get_llm(
         self,
-        model: str,
-        openrouter_api_key: Optional[str],
-        openai_api_key: Optional[str],
-        claude_api_key: Optional[str],
+        args: ReviewCommandArgs,
     ) -> BaseLanguageModel:
         """
         Retrieves a Language Model instance based on the provided model string and API keys.

@@ -1,7 +1,6 @@
 """LangChain-based LLM provider implementation."""
 
 import os
-from typing import Optional
 
 import typer
 from langchain_anthropic import ChatAnthropic
@@ -10,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from core.interfaces.llm_provider import LLMProvider
+from core.models.review_command_args import ReviewCommandArgs
 
 
 class LangChainProvider(LLMProvider):
@@ -17,12 +17,14 @@ class LangChainProvider(LLMProvider):
 
     def get_llm(
         self,
-        model: str,
-        openrouter_api_key: Optional[str],
-        openai_api_key: Optional[str],
-        claude_api_key: Optional[str],
+        args: ReviewCommandArgs,
     ) -> BaseLanguageModel:
         """Creates and returns a LangChain Language Model."""
+        model = args.model
+        openrouter_api_key = args.openrouter_api_key
+        openai_api_key = args.openai_api_key
+        claude_api_key = args.claude_api_key
+
         if model.startswith("openrouter/"):
             api_key = SecretStr(
                 openrouter_api_key or os.getenv("OPENROUTER_API_KEY") or "",

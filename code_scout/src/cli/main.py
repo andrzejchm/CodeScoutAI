@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from core.diff_providers.git_diff_provider import GitDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.models.review_command_args import ReviewCommandArgs
-from core.services.code_review_service import CodeReviewService
+from core.services.code_review_agent import CodeReviewAgent
 
 app = typer.Typer()
 
@@ -57,6 +57,16 @@ def review(  # noqa: PLR0913
         envvar="CODESCOUT_CLAUDE_API_KEY",
         help="API key for Claude (can be set via CODESCOUT_CLAUDE_API_KEY env variable)",
     ),
+    prompt: str = typer.Option(
+        default="""
+        You are a senior software engineer. Review the provided code changes and provide
+        constructive feedback. Focus on code quality, potential bugs, and best practices.
+        """,
+        envvar="CODESCOUT_PROMPT",
+        help="""
+        Prompt for the AI that will be sent as a system message to the LLM to perform code review.
+        """,
+    ),
 ) -> None:
     """
     Shows the number of lines changed in the diff between two branches or commits.
@@ -71,12 +81,12 @@ def review(  # noqa: PLR0913
 
     llm_provider = LangChainProvider()
 
-    review_service = CodeReviewService(
+    review_agent = CodeReviewAgent(
         diff_provider=git_diff_provider,
         llm_provider=llm_provider,
     )
 
-    review_service.review_code(
+    review_agent.review_code(
         ReviewCommandArgs(
             repo_path=repo_path,
             source=source,
@@ -86,6 +96,7 @@ def review(  # noqa: PLR0913
             openrouter_api_key=openrouter_api_key,
             openai_api_key=openai_api_key,
             claude_api_key=claude_api_key,
+            prompt=prompt,
         ),
     )
 

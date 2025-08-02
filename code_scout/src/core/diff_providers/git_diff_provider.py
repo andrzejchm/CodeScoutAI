@@ -1,4 +1,3 @@
-import sys
 from typing import List
 
 import git
@@ -76,40 +75,3 @@ class GitDiffProvider(DiffProvider):
             )
 
         return diff_list
-
-
-if __name__ == "__main__":
-    # Example usage for branch/commit diff
-    repo_path = "/Users/andrzejchm/Developer/andrzejchm/CodeScoutAI"
-    source_branch = "HEAD"
-    target_branch = "HEAD~1"
-
-    try:
-        print("--- Diffing between branches/commits ---")
-        diff_provider = GitDiffProvider(
-            repo_path=repo_path, source=source_branch, target=target_branch
-        )
-        diffs = diff_provider.get_diff()
-
-        print(f"Found {len(diffs)} changes:")
-        for diff in diffs:
-            print(f"\nFile: {diff.file_path}")
-            if diff.old_file_path:
-                print(f"Old File: {diff.old_file_path}")
-            print(f"Change Type: {diff.change_type}")
-            print(f"Diff Content: {len(diff.diff)} characters")
-            if diff.diff:
-                print("Content preview:")
-                preview = (
-                    diff.diff[:PREVIEW_LENGTH] + "..."
-                    if len(diff.diff) > PREVIEW_LENGTH
-                    else diff.diff
-                )
-                print(preview)
-            else:
-                print("No content changes (e.g., file move/rename)")
-            print("-" * 50)
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)

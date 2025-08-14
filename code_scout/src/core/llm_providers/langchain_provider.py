@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from core.interfaces.llm_provider import LLMProvider
 from core.models.review_command_args import ReviewCommandArgs
+from src.cli.cli_utils import echo_info
 
 
 class LangChainProvider(LLMProvider):
@@ -30,7 +31,7 @@ class LangChainProvider(LLMProvider):
                 openrouter_api_key or os.getenv("OPENROUTER_API_KEY") or "",
             )
             if not api_key.get_secret_value():
-                typer.echo(
+                echo_info(
                     "Error: OpenRouter API key not provided. Use --openrouter-api-key or set "
                     "OPENROUTER_API_KEY environment variable."
                 )
@@ -39,13 +40,13 @@ class LangChainProvider(LLMProvider):
             return ChatOpenAI(
                 api_key=api_key,
                 base_url="https://openrouter.ai/api/v1",
-                model=model.split(sep="/")[1],
+                model=model.replace("openrouter/", ""),
             )
 
         elif model.startswith("openai/"):
             api_key = SecretStr(openai_api_key or os.getenv("OPENAI_API_KEY") or "")
             if not api_key.get_secret_value():
-                typer.echo(
+                echo_info(
                     "Error: OpenAI API key not provided. Use --openai-api-key or set "
                     "OPENAI_API_KEY environment variable."
                 )
@@ -59,7 +60,7 @@ class LangChainProvider(LLMProvider):
         elif model.startswith("anthropic/"):
             api_key = SecretStr(claude_api_key or os.getenv("CLAUDE_API_KEY") or "")
             if not api_key.get_secret_value():
-                typer.echo(
+                echo_info(
                     "Error: Claude API key not provided. Use --claude-api-key or"
                     " set CLAUDE_API_KEY environment variable."
                 )
@@ -73,7 +74,7 @@ class LangChainProvider(LLMProvider):
             )
 
         else:
-            typer.echo(
+            echo_info(
                 f"Error: Unknown model '{model}'. Supported models are "
                 "'openrouter/{{model-name}}', 'openai/{{model-name}}', 'anthropic/{{model-name}}'."
             )

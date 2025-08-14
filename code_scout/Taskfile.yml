@@ -23,8 +23,16 @@ tasks:
   lint:
     desc: Lint code with ruff and pyright
     cmds:
+      - poetry run ruff check --fix .
       - poetry run ruff check .
       - pyright
+
+  ci:
+    desc: Run CI checks
+    cmds:
+      - task: format
+      - task: lint
+      - task: test
 
   test:
     desc: Run tests

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import List
 
 from langchain_core.language_models import BaseLanguageModel
 
@@ -29,7 +29,3 @@ class ReviewChain(ABC):
     def get_chain_name(self) -> str:
         """Return the name of this review chain."""
         pass
-
-    def is_enabled(self) -> bool:
-        """Check if this chain is enabled in the configuration."""
-        return True  # Override in subclasses

@@ -12,4 +12,3 @@ class ReviewCommandArgs(BaseModel):
     openrouter_api_key: Optional[str]
     openai_api_key: Optional[str]
     claude_api_key: Optional[str]
-    prompt: str

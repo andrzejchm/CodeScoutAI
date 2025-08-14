@@ -32,14 +32,13 @@ class ReviewConfig(BaseModel):
     enable_function_level_review: bool = True
 
     # Output configuration
-    output_format: str = "cli"  # cli, json, markdown, github
     include_suggestions: bool = True
     include_code_examples: bool = True
-    
+
     # Extensibility
     custom_chains: List[str] = []
     custom_tools: Dict[str, Any] = {}
-    
+
     # LLM configuration
     max_tokens_per_request: int = 4000
     temperature: float = 0.1

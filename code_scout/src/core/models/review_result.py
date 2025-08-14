@@ -3,16 +3,19 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel
 
-from core.models.review_finding import ReviewFinding
+from core.models.review_finding import Category, ReviewFinding, Severity
+
+
+class ReviewSummary(BaseModel):
+    severity: Dict[Severity, int] = defaultdict(int)
+    category: Dict[Category, int] = defaultdict(int)
 
 
 class ReviewResult(BaseModel):
     """Aggregated results of a code review."""
 
     findings: List[ReviewFinding]
-    summary: Dict[
-        str, Dict[str, int]
-    ]  # e.g., {"severity": {"critical": 1}, "category": {"bug": 1}}
+    summary: ReviewSummary
     total_files_reviewed: int
     total_lines_reviewed: int
     review_duration: float  # in seconds
@@ -43,16 +46,16 @@ class ReviewResult(BaseModel):
         summary_by_category = defaultdict(int)
 
         for finding in unique_findings:
-            summary_by_severity[finding.severity.value] += 1
-            summary_by_category[finding.category.value] += 1
+            summary_by_severity[finding.severity] += 1
+            summary_by_category[finding.category] += 1
 
-        summary = {
-            "severity": dict(summary_by_severity),
-            "category": dict(summary_by_category),
-        }
+        summary = ReviewSummary(
+            severity=summary_by_severity,
+            category=summary_by_category,
+        )
 
         # Placeholder for actual counts and duration
-        total_files = len(set(f.file_path for f in unique_findings))
+        total_files = len({f.file_path for f in unique_findings})
         total_lines = 0  # This would require more context from diffs
         duration = 0.0  # This would be calculated during the review process
 

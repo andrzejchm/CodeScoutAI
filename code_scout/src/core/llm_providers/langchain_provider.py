@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from core.interfaces.llm_provider import LLMProvider
-from core.models.review_command_args import ReviewCommandArgs
+from src.cli.cli_context import CliContext
 from src.cli.cli_utils import echo_info
 
 
@@ -18,25 +18,20 @@ class LangChainProvider(LLMProvider):
 
     def get_llm(
         self,
-        args: ReviewCommandArgs,
+        cli_context: CliContext,
     ) -> BaseLanguageModel:
         """Creates and returns a LangChain Language Model."""
-        model = args.model
-        openrouter_api_key = args.openrouter_api_key
-        openai_api_key = args.openai_api_key
-        claude_api_key = args.claude_api_key
+        self.validate_cli_context(cli_context)
+
+        model = cli_context.model
+        openrouter_api_key = cli_context.openrouter_api_key
+        openai_api_key = cli_context.openai_api_key
+        claude_api_key = cli_context.claude_api_key
 
         if model.startswith("openrouter/"):
             api_key = SecretStr(
                 openrouter_api_key or os.getenv("OPENROUTER_API_KEY") or "",
             )
-            if not api_key.get_secret_value():
-                echo_info(
-                    "Error: OpenRouter API key not provided. Use --openrouter-api-key or set "
-                    "OPENROUTER_API_KEY environment variable."
-                )
-                raise typer.Exit(code=1)
-
             return ChatOpenAI(
                 api_key=api_key,
                 base_url="https://openrouter.ai/api/v1",
@@ -45,13 +40,6 @@ class LangChainProvider(LLMProvider):
 
         elif model.startswith("openai/"):
             api_key = SecretStr(openai_api_key or os.getenv("OPENAI_API_KEY") or "")
-            if not api_key.get_secret_value():
-                echo_info(
-                    "Error: OpenAI API key not provided. Use --openai-api-key or set "
-                    "OPENAI_API_KEY environment variable."
-                )
-                raise typer.Exit(code=1)
-
             return ChatOpenAI(
                 api_key=api_key,
                 model=model.split("/")[1],
@@ -59,23 +47,41 @@ class LangChainProvider(LLMProvider):
 
         elif model.startswith("anthropic/"):
             api_key = SecretStr(claude_api_key or os.getenv("CLAUDE_API_KEY") or "")
-            if not api_key.get_secret_value():
-                echo_info(
-                    "Error: Claude API key not provided. Use --claude-api-key or"
-                    " set CLAUDE_API_KEY environment variable."
-                )
-                raise typer.Exit(code=1)
-
             return ChatAnthropic(
                 api_key=api_key,
                 model_name=model.split("/")[1],
-                timeout=60,  # Set a reasonable timeout for API calls
-                stop=["\n\n"],  # Stop generation on double newlines
+                timeout=60,
+                stop=["\n\n"],
             )
 
         else:
             echo_info(
                 f"Error: Unknown model '{model}'. Supported models are "
                 "'openrouter/{{model-name}}', 'openai/{{model-name}}', 'anthropic/{{model-name}}'."
+            )
+            raise typer.Exit(code=1)
+
+    def validate_cli_context(self, cli_context: CliContext):
+        """
+        Validates that the necessary API keys are present in the CliContext
+        based on the selected model.
+        """
+        model = cli_context.model
+        if model.startswith("openrouter/") and not cli_context.openrouter_api_key:
+            echo_info(
+                "Error: OpenRouter API key not provided. Use --openrouter-api-key or set "
+                "CODESCOUT_OPENROUTER_API_KEY environment variable."
+            )
+            raise typer.Exit(code=1)
+        elif model.startswith("openai/") and not cli_context.openai_api_key:
+            echo_info(
+                "Error: OpenAI API key not provided. Use --openai-api-key or set "
+                "CODESCOUT_OPENAI_API_KEY environment variable."
+            )
+            raise typer.Exit(code=1)
+        elif model.startswith("anthropic/") and not cli_context.claude_api_key:
+            echo_info(
+                "Error: Claude API key not provided. Use --claude-api-key or"
+                " set CODESCOUT_CLAUDE_API_KEY environment variable."
             )
             raise typer.Exit(code=1)

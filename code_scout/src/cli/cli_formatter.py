@@ -101,9 +101,8 @@ class CliFormatter(ReviewFormatter):
                     f"\n  Message: {typer.style(finding.message, fg=typer.colors.WHITE)}",
                 )
                 if finding.suggestion:
-                    output.append(
-                        f"\n  Suggestion: {typer.style(finding.suggestion, fg=typer.colors.YELLOW)}",
-                    )
+                    suggestion_text = typer.style(finding.suggestion, fg=typer.colors.YELLOW)
+                    output.append(f"\n  Suggestion: {suggestion_text}")
                 if finding.code_example:
                     output.append(
                         typer.style(
@@ -117,9 +116,20 @@ class CliFormatter(ReviewFormatter):
                             fg=typer.colors.BRIGHT_BLACK,
                         ),
                     )
+
+                # Display code excerpt with context if available
+                if finding.code_excerpt:
+                    output.append(
+                        typer.style(
+                            "\n  Code Context:",
+                            fg=typer.colors.BLUE,
+                            bold=True,
+                        )
+                    )
+                    output.append(self._format_code_excerpt(finding))
                 if finding.tool_name:
                     output.append(
-                        typer.style(f"Tool: {finding.tool_name}", fg=typer.colors.BRIGHT_BLACK),
+                        typer.style(f"\nTool: {finding.tool_name}", fg=typer.colors.BRIGHT_BLACK),
                     )
         else:
             output.append(
@@ -130,6 +140,62 @@ class CliFormatter(ReviewFormatter):
 
         output.append("\n==========================================\n\n")
         return "".join(output)
+
+    def _format_code_excerpt(self, finding) -> str:
+        """
+        Format code excerpt with line numbers and highlighting.
+        """
+        if not finding.code_excerpt or not finding.excerpt_start_line:
+            return ""
+
+        lines = finding.code_excerpt.split("\n")
+        formatted_lines = []
+
+        # Add top border
+        formatted_lines.append(
+            typer.style(
+                "\n  ┌─────────────────────────────────────────",
+                fg=typer.colors.BRIGHT_BLACK,
+            )
+        )
+
+        current_line = finding.excerpt_start_line
+        for line in lines:
+            # Determine if this is the target line
+            is_target_line = (finding.line_number and current_line == finding.line_number) or (
+                finding.line_range
+                and finding.line_range[0] <= current_line <= finding.line_range[1]
+            )
+
+            # Format line number with padding
+            line_num_str = f"{current_line:>3}"
+
+            if is_target_line:
+                # Highlight the target line
+                formatted_line = typer.style(
+                    f"  │ >{line_num_str} | {line}",
+                    fg=typer.colors.BRIGHT_YELLOW,
+                    bold=True,
+                )
+            else:
+                # Regular context line
+                formatted_line = typer.style(
+                    f"  │  {line_num_str} | {line}",
+                    fg=typer.colors.WHITE,
+                )
+
+            formatted_lines.append(formatted_line)
+            current_line += 1
+
+        # Add bottom border
+        formatted_lines.append(
+            typer.style(
+                "  └─────────────────────────────────────────",
+                fg=typer.colors.BRIGHT_BLACK,
+            )
+        )
+
+        return "\n".join(formatted_lines)
 
     @staticmethod
     def _get_severity_color(severity: Severity) -> str:

@@ -36,3 +36,8 @@ class ReviewFinding(BaseModel):
     confidence: float = 1.0  # Confidence score from 0.0 to 1.0
     tool_name: Optional[str] = None  # Which tool/chain generated this finding
     metadata: Dict[str, Any] = {}
+
+    # Code excerpt fields for showing context around the finding
+    code_excerpt: Optional[str] = None  # The actual code lines with context
+    excerpt_start_line: Optional[int] = None  # Starting line number of excerpt
+    excerpt_end_line: Optional[int] = None  # Ending line number of excerpt

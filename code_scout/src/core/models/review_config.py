@@ -43,3 +43,10 @@ class ReviewConfig(BaseModel):
     max_tokens_per_request: int = 4000
     temperature: float = 0.1
     enable_structured_output: bool = True
+
+    # Code Excerpt Configuration
+    show_code_excerpts: bool = True
+    context_lines_before: int = 3
+    context_lines_after: int = 3
+    max_excerpt_lines: int = 20
+    max_file_size_kb: int = 500  # Skip files larger than this

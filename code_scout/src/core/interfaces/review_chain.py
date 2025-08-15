@@ -3,7 +3,6 @@ from typing import List
 
 from langchain_core.language_models import BaseLanguageModel
 
-from core.interfaces.llm_provider import LLMProvider
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.models.review_finding import ReviewFinding
@@ -12,8 +11,7 @@ from core.models.review_finding import ReviewFinding
 class ReviewChain(ABC):
     """Abstract base class for review chain components."""
 
-    def __init__(self, llm_provider: LLMProvider, config: ReviewConfig):
-        self.llm_provider = llm_provider
+    def __init__(self, config: ReviewConfig):
         self.config = config
 
     @abstractmethod

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from langchain_core.language_models import BaseLanguageModel
 
-from core.models.review_command_args import ReviewCommandArgs
+from src.cli.cli_context import CliContext
 
 
 class LLMProvider(ABC):
@@ -14,7 +14,7 @@ class LLMProvider(ABC):
     @abstractmethod
     def get_llm(
         self,
-        args: ReviewCommandArgs,
+        cli_context: CliContext,
     ) -> BaseLanguageModel:
         """
         Retrieves a Language Model instance based on the provided model string and API keys.

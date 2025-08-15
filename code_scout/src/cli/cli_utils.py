@@ -1,5 +1,22 @@
+import os
+from contextlib import contextmanager
+from typing import Any, List, Optional, Tuple, TypeVar
+
 import typer
-from questionary import Style, select
+from questionary import Choice, Style, select
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+from cli.cli_config import cli_config  # Import the config instance
+
+T = TypeVar("T")
+
+
+def echo_debug(message: str):
+    """
+    Echoes a debug message with a grayish color using typer.echo, only if debug mode is enabled.
+    """
+    if cli_config.is_debug:  # Use the config instance
+        typer.echo(typer.style(f"[DEBUG] {message}", fg=typer.colors.BRIGHT_BLACK))
 
 
 def echo_info(message: str):
@@ -9,24 +26,141 @@ def echo_info(message: str):
     typer.echo(typer.style(message, fg=typer.colors.WHITE))
 
 
-def select_option(message: str, choices: list) -> str:
+def echo_warning(message: str):
+    """
+    Echoes a warning message with a yellow color using typer.echo.
+    """
+    typer.echo(typer.style(message, fg=typer.colors.YELLOW))
+
+
+def select_option(message: str, choices: List[Tuple[str, T]]) -> T:
     """
     Presents a selection prompt to the user with custom styling.
+    Choices are provided as a list of (display_string, value) tuples.
+    Returns the selected value.
     """
     custom_style = Style(
         [
             ("qmark", "fg:#673ab7 bold"),
             ("question", "bold"),
-            ("selected", "bg:#2ecc71 fg:#ffffff"),
+            ("selected", "bg:#2ecc71 fg:#000000"),
             ("pointer", "fg:#3498db bold"),
-            ("highlighted", "bg:#2ecc71 fg:#ffffff"),
+            ("highlighted", "bg:#2ecc71 fg:#000000"),
             ("answer", "fg:#2ecc71 bold"),
-            ("text", "fg:#1a4d73"),
+            ("text", "fg:#2ecc71"),
         ]
     )
+    # questionary's select expects a list of strings or Choice objects.
+    # When given (display, value) tuples, it displays 'display' and returns 'value'.
+    # To satisfy type checkers, we convert the tuples to Choice objects.
+    questionary_choices = [Choice(title=display, value=value) for display, value in choices]
     return select(
         message,
-        choices=choices,
+        choices=questionary_choices,
         qmark="?",
         style=custom_style,
     ).ask()
+
+
+@contextmanager
+def show_spinner(label: str):
+    """
+    Displays a spinner while a block of code is executing.
+    """
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task(description=f"{label.strip()}\n", total=None)
+        yield
+        progress.remove_task(task_id)
+
+
+def get_option_or_env_var(
+    option_value: Optional[str],
+    env_var_name: str,
+    prompt_message: Optional[str] = None,
+    required: bool = False,
+    secure_input: bool = False,
+) -> Optional[str]:
+    """
+    Retrieves a value from a Typer option or an environment variable.
+    If the value is missing and `required` is True, it prompts the user for input.
+
+    Args:
+        option_value: The value passed via the Typer option.
+        env_var_name: The name of the environment variable to check.
+        prompt_message: The message to display if prompting the user for input.
+        required: If True, the user will be prompted if the value is missing.
+                  If False, None is returned if the value is not found.
+        secure_input: If True, the user's input will be hidden (e.g., for API keys).
+
+    Returns:
+        The retrieved value, or None if not found and not required.
+
+    Raises:
+        typer.Exit: If the value is required but not provided by the user.
+    """
+    if option_value is not None:
+        return option_value
+
+    # Use os.getenv to get the environment variable
+    env_value = os.getenv(env_var_name)
+    if env_value is not None:
+        return env_value
+
+    if required:
+        if prompt_message:
+            value = typer.prompt(prompt_message, hide_input=secure_input)
+            if value:
+                return value
+            else:
+                echo_warning(f"Error: {env_var_name} is required but was not provided.")
+                raise typer.Exit(code=1)
+        else:
+            echo_warning(f"Error: {env_var_name} is required but was not provided.")
+            raise typer.Exit(code=1)
+
+    return None
+
+
+def cli_option(
+    env_var_name: str,
+    prompt_message: Optional[str] = None,
+    required: bool = False,
+    secure_input: bool = False,
+    help: Optional[str] = None,
+) -> Any:
+    """
+    A custom Typer Option factory that integrates environment variable lookup
+    and interactive prompting.
+
+    Args:
+        env_var_name: The name of the environment variable to check.
+        prompt_message: The message to display if prompting the user for input.
+        required: If True, the user will be prompted if the value is missing.
+        secure_input: If True, the user's input will be hidden (e.g., for API keys).
+        **kwargs: Additional keyword arguments to pass to typer.Option.
+
+    Returns:
+        A typer.Option object configured with the custom callback.
+    """
+
+    def callback(value: Optional[str]):
+        # The 'required' parameter here is passed from CustomOption's arguments
+        # to get_option_or_env_var.
+        return get_option_or_env_var(
+            option_value=value,
+            env_var_name=env_var_name,
+            prompt_message=prompt_message,
+            required=required,  # Use the 'required' from CustomOption
+            secure_input=secure_input,
+        )
+
+    return typer.Option(
+        callback=callback,
+        envvar=env_var_name,
+        default=None,
+        help=help,
+    )

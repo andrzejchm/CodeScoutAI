@@ -17,12 +17,3 @@ class CliContext:
         self.openrouter_api_key = openrouter_api_key
         self.openai_api_key = openai_api_key
         self.claude_api_key = claude_api_key
-
-    def __str__(self):
-        return f"""
-CliContext(
-    model={self.model},
-    openrouter_api_key={self.openrouter_api_key},
-    openai_api_key={self.openai_api_key},
-    claude_api_key={self.claude_api_key},
-)"""

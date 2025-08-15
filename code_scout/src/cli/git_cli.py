@@ -4,29 +4,31 @@ from cli.cli_context import CliContext
 from cli.cli_formatter import CliFormatter
 from core.diff_providers.git_diff_provider import GitDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
-from core.models.review_command_args import ReviewCommandArgs
 from core.services.code_review_agent import CodeReviewAgent
+from src.cli.cli_utils import cli_option
 
-app = typer.Typer()
+app = typer.Typer(
+    no_args_is_help=True,
+    help="Commands for reviewing local Git repositories.",
+)
 
 
 @app.command()
 def review(
     ctx: typer.Context,
-    repo_path: str = typer.Argument(
-        default="/Users/andrzejchm/Developer/andrzejchm/CodeScoutAI",
-        envvar="CODESCOUT_REPO_PATH",
+    repo_path: str = cli_option(
+        env_var_name="CODESCOUT_REPO_PATH",
+        prompt_message="Enter path to the Git repository",
+        required=True,
         help="Path to the Git repository",
     ),
-    source: str = typer.Option(
-        default="HEAD",
-        envvar="CODESCOUT_SOURCE",
-        help="Source branch or commit",
+    source: str = cli_option(
+        env_var_name="CODESCOUT_SOURCE",
+        help="Source branch, commit, or tag to compare from (e.g., 'main', 'HEAD~1')",
     ),
-    target: str = typer.Option(
-        default="HEAD~1",
-        envvar="CODESCOUT_TARGET",
-        help="Target branch or commit",
+    target: str = cli_option(
+        env_var_name="CODESCOUT_TARGET",
+        help="Target branch, commit, or tag to compare to (e.g., 'HEAD')",
     ),
     staged: bool = typer.Option(
         default=False,
@@ -37,7 +39,6 @@ def review(
     """
     Reviews code changes in a Git repository.
     """
-    # Access common options from ctx.obj with type hinting
     cli_context: CliContext = ctx.obj
 
     git_diff_provider = GitDiffProvider(
@@ -53,17 +54,7 @@ def review(
         diff_provider=git_diff_provider,
         llm_provider=llm_provider,
         formatters=[CliFormatter()],
+        cli_context=cli_context,
     )
 
-    review_agent.review_code(
-        args=ReviewCommandArgs(
-            repo_path=repo_path,
-            source=source,
-            target=target,
-            staged=staged,
-            model=cli_context.model,
-            openrouter_api_key=cli_context.openrouter_api_key,
-            openai_api_key=cli_context.openai_api_key,
-            claude_api_key=cli_context.claude_api_key,
-        ),
-    )
+    review_agent.review_code()

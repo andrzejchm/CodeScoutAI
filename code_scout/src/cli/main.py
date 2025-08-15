@@ -6,11 +6,12 @@ from typing import Optional
 import typer
 from dotenv import load_dotenv
 
-# No initial load_dotenv() here.
-# It will be handled conditionally inside the main callback.
+from cli.cli_config import cli_config
 from cli.cli_context import CliContext
 from cli.git_cli import app as git_app
 from cli.github_cli import app as github_app
+from core.llm_providers.langchain_provider import LangChainProvider
+from src.cli.cli_utils import cli_option
 
 app = typer.Typer(
     help="Code Scout CLI for automated code reviews.",
@@ -29,23 +30,22 @@ def main(  # noqa: PLR0913
             'openrouter/anthropic/claude-3.7-sonnet')
         """,
     ),
-    # Remove envvar from API key options, as we'll handle them manually
-    openrouter_api_key: Optional[str] = typer.Option(
-        default=None,
+    openrouter_api_key: Optional[str] = cli_option(
+        env_var_name="CODESCOUT_OPENROUTER_API_KEY",
         help="""
             API key for OpenRouter (can be set via CODESCOUT_OPENROUTER_API_KEY
             env variable or .env file)
         """,
     ),
-    openai_api_key: Optional[str] = typer.Option(
-        default=None,
+    openai_api_key: Optional[str] = cli_option(
+        env_var_name="CODESCOUT_OPENAI_API_KEY",
         help="""
             API key for OpenAI (can be set via CODESCOUT_OPENAI_API_KEY env
             variable or .env file)
         """,
     ),
-    claude_api_key: Optional[str] = typer.Option(
-        default=None,
+    claude_api_key: Optional[str] = cli_option(
+        env_var_name="CODESCOUT_CLAUDE_API_KEY",
         help="""
             API key for Claude (can be set via CODESCOUT_CLAUDE_API_KEY env
             variable or .env file)
@@ -53,13 +53,21 @@ def main(  # noqa: PLR0913
     ),
     env_file: Optional[str] = typer.Option(
         default=None,
+        envvar="CODESCOUT_ENV_FILE",
         help="Path to the .env file to load environment variables from.",
+    ),
+    debug: bool = typer.Option(
+        default=False,
+        envvar="CODESCOUT_DEBUG",
+        help="""
+        Enable debug mode and verbose output.
+        (Can be set via CODESCOUT_DEBUG env variable or --debug flag)
+        """,
     ),
 ):
     """
     Code Scout CLI for automated code reviews.
     """
-    # Conditionally load .env file based on whether env_file is provided
     if env_file:
         # If a custom env_file is provided, load it and override existing variables.
         load_dotenv(dotenv_path=env_file, override=True)
@@ -68,19 +76,19 @@ def main(  # noqa: PLR0913
         # This will not override existing system environment variables unless explicitly told to.
         load_dotenv()
 
-    # Manually retrieve API keys from environment variables,
-    # prioritizing command-line options if provided.
-    # If the command-line option is None, then check the environment variable.
-    final_openrouter_api_key = openrouter_api_key or os.getenv("CODESCOUT_OPENROUTER_API_KEY")
-    final_openai_api_key = openai_api_key or os.getenv("CODESCOUT_OPENAI_API_KEY")
-    final_claude_api_key = claude_api_key or os.getenv("CODESCOUT_CLAUDE_API_KEY")
+    # Set the debug flag in the centralized config
+    cli_config.is_debug = (
+        debug if debug is not None else os.getenv("CODESCOUT_DEBUG", "false").lower() == "true"
+    )
 
     ctx.obj = CliContext(
         model=model,
-        openrouter_api_key=final_openrouter_api_key,
-        openai_api_key=final_openai_api_key,
-        claude_api_key=final_claude_api_key,
+        openrouter_api_key=openrouter_api_key,
+        openai_api_key=openai_api_key,
+        claude_api_key=claude_api_key,
     )
+
+    LangChainProvider().validate_cli_context(ctx.obj)
 
 
 app.add_typer(

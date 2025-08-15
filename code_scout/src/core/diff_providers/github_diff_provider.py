@@ -25,35 +25,34 @@ class GitHubDiffProvider(DiffProvider):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         self.pr_number = pr_number
-        self.github_service = GitHubService(github_token)
+        self.github_service = GitHubService(github_token, repo_owner, repo_name)
 
     def get_diff(self) -> List[CodeDiff]:
-        try:
-            repo = self.github_service.get_repository(self.repo_owner, self.repo_name)
-            pull = self.github_service.get_pull_request(repo, self.pr_number)
+        pull = self.github_service.get_pull_request(self.pr_number)
 
-            code_diffs: List[CodeDiff] = []
-            for file_obj in self.github_service.get_pull_request_files(pull):
-                change_type = self._map_github_status_to_change_type(file_obj.status)
-                old_file_path: Optional[str] = None
+        code_diffs: List[CodeDiff] = []
+        for file_obj in self.github_service.get_pull_request_files(pull):
+            change_type = self._map_github_status_to_change_type(file_obj.status)
+            old_file_path: Optional[str] = None
 
-                if file_obj.status == "renamed":
-                    old_file_path = file_obj.previous_filename
+            if file_obj.status == "renamed":
+                old_file_path = file_obj.previous_filename
 
-                code_diffs.append(
-                    CodeDiff(
-                        diff=file_obj.patch or "",  # patch contains the unified diff
-                        file_path=file_obj.filename,
-                        old_file_path=old_file_path,
-                        change_type=change_type,
-                    )
+            # Fetch current file content for excerpt extraction
+            current_file_content = self.github_service.get_file_content(
+                file_obj.filename, pull.head.sha
+            )
+
+            code_diffs.append(
+                CodeDiff(
+                    diff=file_obj.patch or "",  # patch contains the unified diff
+                    file_path=file_obj.filename,
+                    old_file_path=old_file_path,
+                    change_type=change_type,
+                    current_file_content=current_file_content,
                 )
-            return code_diffs
-        except ValueError as e:
-            # Re-raise ValueError from GitHubService directly
-            raise e
-        except Exception as e:
-            raise ValueError(f"An unexpected error occurred: {e}") from e
+            )
+        return code_diffs
 
     def _map_github_status_to_change_type(self, status: str) -> str:
         status_map = {

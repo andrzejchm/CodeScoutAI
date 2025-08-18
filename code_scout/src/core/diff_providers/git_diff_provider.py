@@ -25,9 +25,7 @@ class GitDiffProvider(DiffProvider):
         self.target = target
         self.staged = staged
         if not self.staged and source == target:
-            raise ValueError(
-                "Source and target branches cannot be the same when not reviewing staged files."
-            )
+            raise ValueError("Source and target branches cannot be the same when not reviewing staged files.")
         if not repo_path:
             raise ValueError("Repository path cannot be empty.")
 

@@ -73,3 +73,4 @@ wheels/
 # Poetry
 .venv/
 woodpecker.db
+*.env

@@ -41,13 +41,9 @@ class BasicReviewChain(ReviewChain):
             if response.content:
                 findings = self._process_llm_response(response.content, file_path_to_diff)
             else:
-                findings.append(
-                    self._create_error_finding("LLM returned no content.", Severity.SUGGESTION)
-                )
+                findings.append(self._create_error_finding("LLM returned no content.", Severity.SUGGESTION))
         except Exception as e:
-            findings.append(
-                self._create_error_finding(f"Error during LLM invocation: {e}", Severity.CRITICAL)
-            )
+            findings.append(self._create_error_finding(f"Error during LLM invocation: {e}", Severity.CRITICAL))
 
         return findings
 
@@ -62,42 +58,73 @@ class BasicReviewChain(ReviewChain):
             HumanMessage(content=human_message_content),
         ]
 
-        echo_debug(
-            f"Sending messages to LLM:\nSystem: {system_message_content}"
-            f"\nHuman: {human_message_content}"
-        )
+        echo_debug(f"Sending messages to LLM:\nSystem: {system_message_content}\nHuman: {human_message_content}")
 
         return llm.invoke(messages)
 
     def _get_system_message(self) -> str:
         """Get the system message for the LLM."""
-        return (
-            "You are an expert code reviewer. Analyze the provided code diffs "
-            "and identify potential issues, bugs, security vulnerabilities, "
-            "performance bottlenecks, or areas for improvement. "
-            "Provide your findings in a clear and concise JSON array format. "
-            "Each finding should be an object with 'severity', 'category', 'file_path', "
-            "Your *only* response must be a JSON array. Do not include any other text, "
-            "explanations, or conversational elements outside the JSON."
-            "'line_number' (optional), 'message', and 'suggestion' (optional) fields. "
-            "Use the following enums for severity: critical, major, minor, suggestion. "
-            "Use the following enums for category: bug, security, performance, style, "
-            "architecture, best_practices, maintainability, readability. "
-            "If no issues are found, return an empty JSON array: [].\n\n"
-            "Example of a single finding:\n"
-            "```json\n"
-            "[\n"
-            "  {\n"
-            '    "severity": "major",\n'
-            '    "category": "security",\n'
-            '    "file_path": "src/main.py",\n'
-            '    "line_number": 15,\n'
-            '    "message": "Potential SQL injection vulnerability.",\n'
-            '    "suggestion": "Use parameterized queries."\n'
-            "  }\n"
-            "]\n"
-            "```"
-        )
+        severity_values = ", ".join([s.value for s in Severity])
+        category_values = ", ".join([c.value for c in Category])
+
+        # ai! n convert it to multiline f""" """ string
+        return f"""
+            You are an expert code reviewer with deep expertise across multiple
+             programming languages, frameworks, and software engineering best practices.
+            Your role is to provide high-quality, actionable code review feedback that helps
+            developers write better, more secure, and more maintainable code.
+
+            CRITICAL GUIDELINES:
+            - QUALITY OVER QUANTITY: Only report findings you are confident about.
+             Avoid speculation or uncertain observations.
+            - FOCUS ON IMPACT: Prioritize findings that have real security, performance,
+             or maintainability implications.
+            - BE SPECIFIC: Provide clear, actionable feedback with concrete suggestions
+             when possible.
+            - AVOID NOISE: Do not report minor style preferences, subjective opinions,
+             or issues that are already handled by automated tools.
+            - CONTEXT MATTERS: Consider the broader codebase context when making recommendations.
+
+            ANALYSIS SCOPE:
+            Analyze the provided code diffs for:
+            • Security vulnerabilities (injection attacks, authentication flaws, data exposure)
+            • Logic bugs and error handling issues
+            • Performance bottlenecks and inefficient algorithms
+            • Architecture and design pattern violations
+            • Maintainability and readability concerns
+            • Best practice violations with significant impact
+
+            OUTPUT FORMAT:
+            Your response must be ONLY a valid JSON array. No explanations, no conversational text.
+            Each finding must be a JSON object with these fields:
+            • 'severity': One of [{severity_values}]
+            • 'category': One of [{category_values}]
+            • 'file_path': The file path from the diff
+            • 'line_number': Specific line number (optional but preferred)
+            • 'message': Clear, concise description of the issue
+            • 'suggestion': Actionable recommendation to fix the issue (optional)
+
+            SEVERITY GUIDELINES:
+            • critical: Security vulnerabilities, data corruption risks, system crashes
+            • major: Significant bugs, performance issues, architectural problems
+            • minor: Code quality issues with moderate impact
+            • suggestion: Improvements that enhance code quality but aren't urgent
+
+            If no significant issues are found, return an empty array: []
+
+            Example response:
+            ```json
+            [
+              {{"severity": "major",
+                "category": "security",
+                "file_path": "src/auth.py",
+                "line_number": 42,
+                "message": "SQL query constructed with string concatenation allows injection attacks",
+                "suggestion": "Use parameterized queries or an ORM to prevent SQL injection"
+              }}
+            ]
+            ```
+        """
 
     def _process_llm_response(self, content: str, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Process the LLM response and extract findings."""
@@ -127,10 +154,7 @@ class BasicReviewChain(ReviewChain):
         except Exception as e:
             findings.append(
                 self._create_error_finding(
-                    (
-                        f"An unexpected error occurred during LLM response processing: {e}."
-                        f"Raw response: {content}"
-                    ),
+                    f"An unexpected error occurred during LLM response processing: {e}.Raw response: {content}",
                     Severity.CRITICAL,
                 )
             )
@@ -146,9 +170,7 @@ class BasicReviewChain(ReviewChain):
             return json_str[json_str.find("[") : json_str.rfind("]") + 1]
         return json_str
 
-    def _create_findings_from_data(
-        self, findings_data: list, file_path_to_diff: dict
-    ) -> List[ReviewFinding]:
+    def _create_findings_from_data(self, findings_data: list, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Create ReviewFinding objects from parsed JSON data."""
         findings = []
         for finding_data in findings_data:
@@ -158,10 +180,7 @@ class BasicReviewChain(ReviewChain):
             except Exception as e:
                 findings.append(
                     self._create_error_finding(
-                        (
-                            f"Failed to parse individual finding from LLM: {e}."
-                            f" Raw data: {finding_data}"
-                        ),
+                        f"Failed to parse individual finding from LLM: {e}. Raw data: {finding_data}",
                         Severity.CRITICAL,
                     )
                 )
@@ -190,9 +209,7 @@ class BasicReviewChain(ReviewChain):
             excerpt_end_line=excerpt_end_line,
         )
 
-    def _extract_code_excerpt(
-        self, file_path: str, line_number: Optional[int], file_path_to_diff: dict
-    ):
+    def _extract_code_excerpt(self, file_path: str, line_number: Optional[int], file_path_to_diff: dict):
         """Extract code excerpt for a finding."""
         if not (file_path in file_path_to_diff and self.config.show_code_excerpts and line_number):
             return None, None, None

@@ -110,9 +110,7 @@ line 3"""
         assert excerpt is None
 
         # Line number out of range
-        excerpt = CodeExcerptExtractor.extract_with_context(
-            file_content=file_content, line_number=100
-        )
+        excerpt = CodeExcerptExtractor.extract_with_context(file_content=file_content, line_number=100)
         assert excerpt is None
 
     def test_is_binary_content(self):

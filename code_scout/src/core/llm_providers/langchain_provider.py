@@ -9,8 +9,8 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from core.interfaces.llm_provider import LLMProvider
-from src.cli.cli_context import CliContext
-from src.cli.cli_utils import echo_info
+from src.cli.cli_utils import echo_info, echo_warning
+from src.cli.code_scout_context import CodeScoutContext
 
 
 class LangChainProvider(LLMProvider):
@@ -18,15 +18,15 @@ class LangChainProvider(LLMProvider):
 
     def get_llm(
         self,
-        cli_context: CliContext,
+        code_scout_context: CodeScoutContext,
     ) -> BaseLanguageModel:
         """Creates and returns a LangChain Language Model."""
-        self.validate_cli_context(cli_context)
+        self.validate_cli_context(code_scout_context)
 
-        model = cli_context.model
-        openrouter_api_key = cli_context.openrouter_api_key
-        openai_api_key = cli_context.openai_api_key
-        claude_api_key = cli_context.claude_api_key
+        model = code_scout_context.model
+        openrouter_api_key = code_scout_context.openrouter_api_key
+        openai_api_key = code_scout_context.openai_api_key
+        claude_api_key = code_scout_context.claude_api_key
 
         if model.startswith("openrouter/"):
             api_key = SecretStr(
@@ -61,27 +61,27 @@ class LangChainProvider(LLMProvider):
             )
             raise typer.Exit(code=1)
 
-    def validate_cli_context(self, cli_context: CliContext):
+    def validate_cli_context(self, code_scout_context: CodeScoutContext):
         """
         Validates that the necessary API keys are present in the CliContext
         based on the selected model.
         """
-        model = cli_context.model
-        if model.startswith("openrouter/") and not cli_context.openrouter_api_key:
-            echo_info(
-                "Error: OpenRouter API key not provided. Use --openrouter-api-key or set "
-                "CODESCOUT_OPENROUTER_API_KEY environment variable."
+        model = code_scout_context.model
+        if model.startswith("openrouter/") and not code_scout_context.openrouter_api_key:
+            echo_warning(
+                f"Error: OpenRouter API key not provided for model '{model}'. "
+                f"Use --openrouter-api-key or set CODESCOUT_OPENROUTER_API_KEY env variable."
             )
             raise typer.Exit(code=1)
-        elif model.startswith("openai/") and not cli_context.openai_api_key:
-            echo_info(
-                "Error: OpenAI API key not provided. Use --openai-api-key or set "
-                "CODESCOUT_OPENAI_API_KEY environment variable."
+        elif model.startswith("openai/") and not code_scout_context.openai_api_key:
+            echo_warning(
+                f"Error: OpenAI API key not provided for model '{model}'. "
+                f"Use --openai-api-key or set CODESCOUT_OPENAI_API_KEY env variable."
             )
             raise typer.Exit(code=1)
-        elif model.startswith("anthropic/") and not cli_context.claude_api_key:
-            echo_info(
-                "Error: Claude API key not provided. Use --claude-api-key or"
-                " set CODESCOUT_CLAUDE_API_KEY environment variable."
+        elif model.startswith("anthropic/") and not code_scout_context.claude_api_key:
+            echo_warning(
+                f"Error: Claude API key not provided for model '{model}'. "
+                f"Use --claude-api-key or  set CODESCOUT_CLAUDE_API_KEY env variable."
             )
             raise typer.Exit(code=1)

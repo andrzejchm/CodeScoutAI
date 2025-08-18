@@ -36,9 +36,7 @@ class GitHubService:
             return repo
         except GithubException as e:
             if e.status == HTTP_NOT_FOUND:
-                raise ValueError(
-                    f"Repository '{self.repo_owner}/{self.repo_name}' not found."
-                ) from e
+                raise ValueError(f"Repository '{self.repo_owner}/{self.repo_name}' not found.") from e
             raise ValueError(f"GitHub API error: {e.status} - {e.data}") from e
         except Exception as e:
             raise ValueError(f"An unexpected error occurred while getting repository: {e}") from e
@@ -61,16 +59,21 @@ class GitHubService:
             return pull
         except GithubException as e:
             if e.status == HTTP_NOT_FOUND:
-                raise ValueError(
-                    f"Pull request #{pr_number} not found in '{self.repo.full_name}'."
-                ) from e
+                raise ValueError(f"Pull request #{pr_number} not found in '{self.repo.full_name}'.") from e
             raise ValueError(f"GitHub API error: {e.status} - {e.data}") from e
         except Exception as e:
             raise ValueError(f"An unexpected error occurred while getting pull request: {e}") from e
 
-    def get_open_pull_requests(self) -> List[PullRequest]:
+    def get_open_pull_requests(
+        self,
+        page: int = 0,
+    ) -> List[PullRequest]:
         """
-        Retrieves all open pull requests for the encapsulated repository.
+        Retrieves open pull requests for the encapsulated repository with pagination.
+
+        Args:
+            page: The page number to retrieve (0-indexed).
+            per_page: The number of pull requests per page.
 
         Returns:
             A list of PyGithub PullRequest objects.
@@ -79,13 +82,15 @@ class GitHubService:
             ValueError: If an API error occurs.
         """
         try:
-            return list(self.repo.get_pulls(state="open"))
+            # PyGithub's get_pulls method supports pagination directly
+            # The page parameter is 0-indexed for PyGithub's get_page method
+            pulls = self.repo.get_pulls(state="open")
+            paginated_pulls = pulls.get_page(page)
+            return list(paginated_pulls)
         except GithubException as e:
             raise ValueError(f"GitHub API error: {e.status} - {e.data}") from e
         except Exception as e:
-            raise ValueError(
-                f"An unexpected error occurred while listing pull requests: {e}"
-            ) from e
+            raise ValueError(f"An unexpected error occurred while listing pull requests: {e}") from e
 
     def get_pull_request_files(self, pull: PullRequest):
         """
@@ -115,9 +120,7 @@ class GitHubService:
             return contents.decoded_content.decode("utf-8")
         except GithubException as e:
             if e.status == HTTP_NOT_FOUND:
-                return (
-                    None  # File not found at this ref, which is acceptable for some diff scenarios
-                )
+                return None  # File not found at this ref, which is acceptable for some diff scenarios
             elif e.status == HTTP_FORBIDDEN:
                 raise ValueError(
                     (

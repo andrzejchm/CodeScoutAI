@@ -1,7 +1,7 @@
 from typing import Optional
 
 
-class CliContext:
+class CodeScoutContext:
     """
     A custom class to hold common CLI options for Typer context.
     """

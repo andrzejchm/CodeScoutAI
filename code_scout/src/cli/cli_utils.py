@@ -1,6 +1,6 @@
 import os
 from contextlib import contextmanager
-from typing import Any, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, List, Optional, Tuple, TypeVar
 
 import typer
 from questionary import Choice, Style, select
@@ -33,7 +33,7 @@ def echo_warning(message: str):
     typer.echo(typer.style(message, fg=typer.colors.YELLOW))
 
 
-def select_option(message: str, choices: List[Tuple[str, T]]) -> T:
+def select_option(message: str, choices: List[Tuple[str, T]]) -> Optional[T]:
     """
     Presents a selection prompt to the user with custom styling.
     Choices are provided as a list of (display_string, value) tuples.
@@ -60,6 +60,55 @@ def select_option(message: str, choices: List[Tuple[str, T]]) -> T:
         qmark="?",
         style=custom_style,
     ).ask()
+
+
+def select_from_paginated_options(
+    message: str,
+    fetch_page_func: Callable[[int, int], List[Tuple[str, T]]],
+    per_page: int = 10,
+) -> Optional[T]:
+    """
+    Presents a list of choices to the user with pagination, allowing them to load more.
+
+    Args:
+        message: The message to display to the user.
+        fetch_page_func: A callable that takes (page_number, per_page) and returns
+                         a list of (display_text, value) tuples for that page.
+        per_page: The number of items to display per page.
+
+    Returns:
+        The value of the selected option, or None if the user cancels.
+    """
+    page = 0
+    all_options_loaded = False
+    all_fetched_options: List[Tuple[str, T]] = []
+
+    while True:
+        with show_spinner(label=f"Fetching options (page {page + 1})"):
+            current_page_options = fetch_page_func(page, per_page)
+            all_fetched_options.extend(current_page_options)
+
+        if not current_page_options and page == 0:
+            echo_info("No options available.")
+            return None
+        elif not current_page_options:
+            all_options_loaded = True
+
+        display_choices = list(current_page_options)  # Make a mutable copy
+
+        if not all_options_loaded:
+            display_choices.append(("Show more...", "show_more"))
+
+        selected_option = select_option(message, display_choices)
+
+        if selected_option == "show_more":
+            page += 1
+        elif selected_option is None:
+            # User cancelled
+            return None
+        else:
+            # A valid option was selected
+            return selected_option
 
 
 @contextmanager
@@ -102,11 +151,13 @@ def get_option_or_env_var(
     Raises:
         typer.Exit: If the value is required but not provided by the user.
     """
+
     if option_value is not None:
         return option_value
 
     # Use os.getenv to get the environment variable
     env_value = os.getenv(env_var_name)
+
     if env_value is not None:
         return env_value
 
@@ -164,3 +215,16 @@ def cli_option(
         default=None,
         help=help,
     )
+
+
+def handle_cli_exception(e: Exception, message: str = "An error occurred"):
+    """
+    Handles exceptions in CLI commands, raising the original exception if debug is enabled,
+    otherwise exiting gracefully with a warning message, chaining the original exception.
+    """
+    if cli_config.is_debug:
+        raise e  # Re-raises the original exception, preserving its full stack trace
+    else:
+        echo_warning(f"{message}: {e}")
+        # Raise a new typer.Exit, but chain the original exception 'e'
+        raise typer.Exit(code=1) from e

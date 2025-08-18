@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from langchain_core.language_models import BaseLanguageModel
 
-from src.cli.cli_context import CliContext
+from src.cli.code_scout_context import CodeScoutContext
 
 
 class LLMProvider(ABC):
@@ -14,7 +14,7 @@ class LLMProvider(ABC):
     @abstractmethod
     def get_llm(
         self,
-        cli_context: CliContext,
+        code_scout_context: CodeScoutContext,
     ) -> BaseLanguageModel:
         """
         Retrieves a Language Model instance based on the provided model string and API keys.

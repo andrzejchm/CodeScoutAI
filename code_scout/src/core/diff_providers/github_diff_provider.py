@@ -39,9 +39,7 @@ class GitHubDiffProvider(DiffProvider):
                 old_file_path = file_obj.previous_filename
 
             # Fetch current file content for excerpt extraction
-            current_file_content = self.github_service.get_file_content(
-                file_obj.filename, pull.head.sha
-            )
+            current_file_content = self.github_service.get_file_content(file_obj.filename, pull.head.sha)
 
             code_diffs.append(
                 CodeDiff(

@@ -20,8 +20,7 @@ class CliFormatter(ReviewFormatter):
                 fg=typer.colors.BRIGHT_BLUE,
                 bold=True,
             ),
-            "\nTotal Files Reviewed: "
-            f"{typer.style(str(result.total_files_reviewed), fg=typer.colors.CYAN)}",
+            f"\nTotal Files Reviewed: {typer.style(str(result.total_files_reviewed), fg=typer.colors.CYAN)}",
             "\nTotal Lines Reviewed: ",
             typer.style(
                 str(result.total_lines_reviewed),
@@ -133,9 +132,7 @@ class CliFormatter(ReviewFormatter):
                     )
         else:
             output.append(
-                typer.style(
-                    "\nNo findings to report. Great job!", fg=typer.colors.GREEN, bold=True
-                ),
+                typer.style("\nNo findings to report. Great job!", fg=typer.colors.GREEN, bold=True),
             )
 
         output.append("\n==========================================\n\n")
@@ -163,8 +160,7 @@ class CliFormatter(ReviewFormatter):
         for line in lines:
             # Determine if this is the target line
             is_target_line = (finding.line_number and current_line == finding.line_number) or (
-                finding.line_range
-                and finding.line_range[0] <= current_line <= finding.line_range[1]
+                finding.line_range and finding.line_range[0] <= current_line <= finding.line_range[1]
             )
 
             # Format line number with padding

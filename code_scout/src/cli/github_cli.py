@@ -1,17 +1,25 @@
 import os
+from typing import List, Tuple
 
 import typer
 from dotenv import load_dotenv
 
-from cli.cli_context import CliContext
+from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.github_diff_provider import GitHubDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
 from src.cli.cli_formatter import CliFormatter
+from src.cli.cli_options import (
+    github_token_option,
+    pr_number_option,
+    repo_name_option,
+    repo_owner_option,
+)
 from src.cli.cli_utils import (
-    cli_option,
     echo_info,
     echo_warning,
+    handle_cli_exception,
+    select_from_paginated_options,
     select_option,
     show_spinner,
 )
@@ -33,7 +41,7 @@ def _perform_review(
     """
     Private method to perform the actual code review logic.
     """
-    cli_context: CliContext = ctx.obj
+    code_scout_context: CodeScoutContext = ctx.obj
     echo_info(f"Attempting to review PR #{pr_number} in {repo_owner}/{repo_name}")
 
     try:
@@ -48,7 +56,7 @@ def _perform_review(
             diff_provider=diff_provider,
             llm_provider=LangChainProvider(),
             formatters=[CliFormatter()],
-            cli_context=cli_context,
+            cli_context=code_scout_context,
         )
 
         review_agent.review_code()
@@ -56,39 +64,17 @@ def _perform_review(
     except typer.Exit:
         pass
     except Exception as e:
-        echo_warning(f"Error reviewing pull request: {e}")
-        raise typer.Exit(code=1) from e
+        handle_cli_exception(e, message="Error reviewing pull request")
 
 
 @app.command("review-pr")
 def review_pr(
     ctx: typer.Context,
-    repo_owner: str = cli_option(
-        env_var_name="CODESCOUT_REPO_OWNER",
-        prompt_message="Enter GitHub repository owner",
-        required=True,
-        help="GitHub repository owner.",
-    ),
-    repo_name: str = cli_option(
-        env_var_name="CODESCOUT_REPO_NAME",
-        prompt_message="Enter GitHub repository name",
-        required=True,
-        help="GitHub repository name.",
-    ),
-    pr_number: int = typer.Option(
-        help="Pull request number to review.",
-        envvar="CODESCOUT_PR_NUMBER",
-    ),
-    github_token: str = cli_option(
-        env_var_name="CODESCOUT_GITHUB_API_KEY",
-        prompt_message="Enter GitHub API key",
-        required=True,
-        secure_input=True,
-        help="""
-        GitHub API access token. Can be set via CODESCOUT_GITHUB_API_KEY environment variable.
-        """,
-    ),
-):
+    repo_owner: str = repo_owner_option(),
+    repo_name: str = repo_name_option(),
+    pr_number: int = pr_number_option(),
+    github_token: str = github_token_option(),
+) -> None:
     """
     Review a specific pull request from a GitHub repository.
     """
@@ -98,44 +84,25 @@ def review_pr(
 @app.command("interactive-review")
 def interactive_review(
     ctx: typer.Context,
-    repo_owner: str = cli_option(
-        env_var_name="CODESCOUT_REPO_OWNER",
-        prompt_message="Enter GitHub repository owner",
-        required=True,
-        help="GitHub repository owner.",
-    ),
-    repo_name: str = cli_option(
-        env_var_name="CODESCOUT_REPO_NAME",
-        prompt_message="Enter GitHub repository name",
-        required=True,
-        help="GitHub repository name.",
-    ),
-    github_token: str = cli_option(
-        env_var_name="CODESCOUT_GITHUB_API_KEY",
-        prompt_message="Enter GitHub API key",
-        required=True,
-        secure_input=True,
-        help="GitHub API access token. Can be set via CODESCOUT_GITHUB_API_KEY env variable.",
-    ),
+    repo_owner: str = repo_owner_option(),
+    repo_name: str = repo_name_option(),
+    github_token: str = github_token_option(),
 ):
     echo_info(message=f"Starting github interactive review for {repo_owner}/{repo_name}")
     try:
         github_service = GitHubService(github_token, repo_owner, repo_name)
-        with show_spinner(label="Fetching open pull requests"):
-            pull_requests = github_service.get_open_pull_requests()
 
-        if not pull_requests:
-            echo_info(message=f"No open pull requests found for {repo_owner}/{repo_name}.")
-            return
+        def fetch_pull_requests_page(page: int, _per_page: int) -> List[Tuple[str, int]]:
+            pull_requests = github_service.get_open_pull_requests(page=page)
+            return [
+                (f"#{pr.number}: {pr.title} by {pr.user.login} (Branch: {pr.head.ref})", pr.number)
+                for pr in pull_requests
+            ]
 
-        pr_choices = [
-            (f"#{pr.number}: {pr.title} by {pr.user.login} (Branch: {pr.head.ref})", pr.number)
-            for pr in pull_requests
-        ]
-
-        selected_pr_number = select_option(
+        selected_pr_number = select_from_paginated_options(
             "Select a Pull Request to review",
-            pr_choices,
+            fetch_pull_requests_page,
+            per_page=10,
         )
 
         if selected_pr_number is None:
@@ -165,8 +132,7 @@ def interactive_review(
     except typer.Exit:
         pass
     except Exception as e:
-        echo_warning(f"Error during interactive review: {e}")
-        raise typer.Exit(code=1) from e
+        handle_cli_exception(e, message="Error during interactive review")
 
 
 if __name__ == "__main__":
@@ -181,8 +147,8 @@ if __name__ == "__main__":
         )
 
         llm_provider = LangChainProvider()
-        # Create a dummy CliContext for standalone execution
-        cli_context = CliContext(
+        # Create a dummy CodeScoutContext for standalone execution
+        code_scout_context = CodeScoutContext(
             model="openrouter/anthropic/claude-sonnet-4",
             openrouter_api_key=os.getenv("CODESCOUT_OPENROUTER_API_KEY", default=""),
             openai_api_key="",
@@ -193,17 +159,13 @@ if __name__ == "__main__":
             diff_provider=diff_provider,
             llm_provider=llm_provider,
             formatters=[CliFormatter()],
-            cli_context=cli_context,
+            cli_context=code_scout_context,
         )
 
-        echo_info(f"\nUsing LLM: {cli_context.model}")
+        echo_info(f"\nUsing LLM: {code_scout_context.model}")
         with show_spinner(label="Performing code review"):
             review_agent.review_code()
         echo_info("Successfully reviewed PR #16.")
 
-    except ValueError as ex1:
-        echo_warning(f"Error: {ex1}")
-        raise typer.Exit(code=1) from ex1
-    except Exception as ex2:
-        echo_warning(f"Error reviewing pull request: {ex2}")
-        raise typer.Exit(code=1) from ex2
+    except Exception as e:
+        handle_cli_exception(e, message="Error reviewing pull request")

@@ -1,11 +1,12 @@
 import typer
 
-from cli.cli_context import CliContext
 from cli.cli_formatter import CliFormatter
+from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.git_diff_provider import GitDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
-from src.cli.cli_utils import cli_option
+from src.cli.cli_options import repo_path_option, source_option, staged_option, target_option
+from src.cli.cli_utils import handle_cli_exception  # Import the new utility function
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -16,45 +17,33 @@ app = typer.Typer(
 @app.command()
 def review(
     ctx: typer.Context,
-    repo_path: str = cli_option(
-        env_var_name="CODESCOUT_REPO_PATH",
-        prompt_message="Enter path to the Git repository",
-        required=True,
-        help="Path to the Git repository",
-    ),
-    source: str = cli_option(
-        env_var_name="CODESCOUT_SOURCE",
-        help="Source branch, commit, or tag to compare from (e.g., 'main', 'HEAD~1')",
-    ),
-    target: str = cli_option(
-        env_var_name="CODESCOUT_TARGET",
-        help="Target branch, commit, or tag to compare to (e.g., 'HEAD')",
-    ),
-    staged: bool = typer.Option(
-        default=False,
-        envvar="CODESCOUT_STAGED",
-        help="Review only staged files",
-    ),
+    repo_path: str = repo_path_option(),
+    source: str = source_option(),
+    target: str = target_option(),
+    staged: bool = staged_option(),
 ) -> None:
     """
     Reviews code changes in a Git repository.
     """
-    cli_context: CliContext = ctx.obj
+    code_scout_context: CodeScoutContext = ctx.obj
 
-    git_diff_provider = GitDiffProvider(
-        repo_path=repo_path,
-        source=source,
-        target=target,
-        staged=staged,
-    )
+    try:
+        git_diff_provider = GitDiffProvider(
+            repo_path=repo_path,
+            source=source,
+            target=target,
+            staged=staged,
+        )
 
-    llm_provider = LangChainProvider()
+        llm_provider = LangChainProvider()
 
-    review_agent = CodeReviewAgent(
-        diff_provider=git_diff_provider,
-        llm_provider=llm_provider,
-        formatters=[CliFormatter()],
-        cli_context=cli_context,
-    )
+        review_agent = CodeReviewAgent(
+            diff_provider=git_diff_provider,
+            llm_provider=llm_provider,
+            formatters=[CliFormatter()],
+            cli_context=code_scout_context,
+        )
 
-    review_agent.review_code()
+        review_agent.review_code()
+    except Exception as e:
+        handle_cli_exception(e, message="Error reviewing Git repository")

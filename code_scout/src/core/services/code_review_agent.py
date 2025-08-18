@@ -12,8 +12,8 @@ from core.models.review_config import ReviewConfig
 from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
-from src.cli.cli_context import CliContext
 from src.cli.cli_utils import echo_info, show_spinner
+from src.cli.code_scout_context import CodeScoutContext
 
 
 class CodeReviewAgent:
@@ -27,7 +27,7 @@ class CodeReviewAgent:
         diff_provider: DiffProvider,
         llm_provider: LLMProvider,
         formatters: List[ReviewFormatter],
-        cli_context: CliContext,
+        cli_context: CodeScoutContext,
         config: Optional[ReviewConfig] = None,
     ):
         self.diff_provider = diff_provider

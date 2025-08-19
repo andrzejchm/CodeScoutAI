@@ -7,7 +7,6 @@ license = "Business Source License 1.1"
 packages = [
     { include = "core", from = "src" },
     { include = "cli", from = "src" },
-    { include = "plugins", from = "src" },
 ]
 
 [tool.poetry.scripts]
@@ -27,6 +26,7 @@ langchain-openai = "^0.3.27"
 langchain-anthropic = "^0.3.17"
 pygithub = "^2.2.0"
 questionary = "^2.1.0"
+langgraph = "^0.6.5"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.10"
@@ -39,7 +39,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests"]
 venvPath = "."
 venv = ".venv"
 exclude = ["**/__pycache__"]

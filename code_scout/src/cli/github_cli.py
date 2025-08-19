@@ -2,6 +2,7 @@ import os
 from typing import List, Tuple
 
 import typer
+from click import Command
 from dotenv import load_dotenv
 
 from cli.code_scout_context import CodeScoutContext
@@ -21,7 +22,6 @@ from src.cli.cli_utils import (
     handle_cli_exception,
     select_from_paginated_options,
     select_option,
-    show_spinner,
 )
 from src.core.services.github_service import GitHubService
 
@@ -136,36 +136,25 @@ def interactive_review(
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    load_dotenv(".codescout.env")
 
     try:
-        diff_provider = GitHubDiffProvider(
-            repo_owner="glamox-lms",
-            repo_name="wireless-radio-dart-sdk",
-            pr_number=82,
-            github_token=os.getenv("CODESCOUT_GITHUB_API_KEY", default=""),
+        _perform_review(
+            ctx=typer.Context(
+                command=Command(
+                    name="interactive-review",
+                ),
+                obj=CodeScoutContext(
+                    model=os.getenv("CODESCOUT_MODEL"),
+                    openrouter_api_key=os.getenv("CODESCOUT_OPENROUTER_API_KEY"),
+                    openai_api_key="",
+                    claude_api_key="",
+                ),
+            ),
+            repo_owner=os.getenv("CODESCOUT_REPO_OWNER"),
+            repo_name=os.getenv("CODESCOUT_REPO_NAME"),
+            github_token=os.getenv("CODESCOUT_GITHUB_API_KEY"),
+            pr_number=256,
         )
-
-        llm_provider = LangChainProvider()
-        # Create a dummy CodeScoutContext for standalone execution
-        code_scout_context = CodeScoutContext(
-            model="openrouter/anthropic/claude-sonnet-4",
-            openrouter_api_key=os.getenv("CODESCOUT_OPENROUTER_API_KEY", default=""),
-            openai_api_key="",
-            claude_api_key="",
-        )
-
-        review_agent = CodeReviewAgent(
-            diff_provider=diff_provider,
-            llm_provider=llm_provider,
-            formatters=[CliFormatter()],
-            cli_context=code_scout_context,
-        )
-
-        echo_info(f"\nUsing LLM: {code_scout_context.model}")
-        with show_spinner(label="Performing code review"):
-            review_agent.review_code()
-        echo_info("Successfully reviewed PR #16.")
-
     except Exception as e:
         handle_cli_exception(e, message="Error reviewing pull request")

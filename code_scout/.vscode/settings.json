@@ -6,12 +6,13 @@
     "source.organizeImports": "explicit"
   },
   "ruff.configurationPreference": "filesystemFirst",
-  "ruff.lineLength": 100,
+  "ruff.lineLength": 120,
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
     "editor.rulers": [
-      100
+      120
     ]
-  }
+  },
+  "python.analysis.diagnosticsSource": "Pyright"
 }

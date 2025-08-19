@@ -97,7 +97,7 @@ def select_from_paginated_options(
         display_choices = list(current_page_options)  # Make a mutable copy
 
         if not all_options_loaded:
-            display_choices.append(("Show more...", "show_more"))
+            display_choices.append(("Show more...", "show_more"))  # type: ignore
 
         selected_option = select_option(message, display_choices)
 

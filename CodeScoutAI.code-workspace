@@ -24,7 +24,7 @@
       "source.organizeImports": "explicit"
     },
     "ruff.configurationPreference": "filesystemFirst",
-    "python.analysis.diagnosticsSource": "Pylance",
+    "python.analysis.diagnosticsSource": "Pyright",
     "ruff.enable": true
   }
 }

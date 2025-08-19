@@ -3,7 +3,8 @@ import re
 from typing import List, Optional
 
 from langchain_core.language_models import BaseLanguageModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langgraph.prebuilt import create_react_agent
 
 from cli.cli_utils import echo_debug
 from core.interfaces.review_chain import ReviewChain
@@ -36,95 +37,135 @@ class BasicReviewChain(ReviewChain):
         findings: List[ReviewFinding] = []
         file_path_to_diff = {diff.file_path: diff for diff in diffs}
 
-        try:
-            response = self._invoke_llm(diffs, llm)
-            if response.content:
-                findings = self._process_llm_response(response.content, file_path_to_diff)
-            else:
-                findings.append(self._create_error_finding("LLM returned no content.", Severity.SUGGESTION))
-        except Exception as e:
-            findings.append(self._create_error_finding(f"Error during LLM invocation: {e}", Severity.CRITICAL))
+        response = self._invoke_llm(diffs, llm)
+        if response:
+            findings = self._process_llm_response(response, file_path_to_diff)
+        else:
+            findings.append(self._create_error_finding("LLM returned no content.", Severity.SUGGESTION))
 
         return findings
 
-    def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel):
-        """Invoke the LLM with the code diffs."""
+    def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel) -> str:
+        """Invoke the LLM with the code diffs, always using an agent executor."""
         all_diff_content = "\n\n".join([f"File: {d.file_path}\nDiff:\n{d.diff}" for d in diffs])
-        system_message_content = self._get_system_message()
-        human_message_content = f"Please review the following code diffs:\n\n{all_diff_content}"
 
-        messages = [
-            SystemMessage(content=system_message_content),
-            HumanMessage(content=human_message_content),
-        ]
+        # Create tools from configured LangChain tools (can be empty)
+        tools = []
+        for tool_instance in self.config.langchain_tools:
+            tool = tool_instance.get_tool(diffs)
+            tools.append(tool)
+            echo_debug(f"using tool:\n{tool.args_schema.model_json_schema()}")
 
-        echo_debug(f"Sending messages to LLM:\nSystem: {system_message_content}\nHuman: {human_message_content}")
+        # Create enhanced system message with tool information
+        system_message_content = self._get_system_message_with_tools()
 
-        return llm.invoke(messages)
+        # Create and execute agent
+        agent = create_react_agent(
+            model=llm,
+            tools=tools,
+        )
+
+        echo_debug(
+            f"Executing agent with tools: {[tool.name for tool in tools]}",
+        )
+
+        result = agent.invoke(
+            input={
+                "messages": [
+                    SystemMessage(content=system_message_content),
+                    HumanMessage(
+                        content=f"Please review the following code diffs:\n\n{all_diff_content}",
+                    ),
+                ],
+            },
+        )
+
+        echo_debug(
+            f"Agent response: {result}",
+        )
+
+        result_messages: List[BaseMessage] = result.get("messages")
+        if result_messages and isinstance(result_messages[-1], BaseMessage):
+            return str(result_messages[-1].content)
+        return ""
 
     def _get_system_message(self) -> str:
         """Get the system message for the LLM."""
         severity_values = ", ".join([s.value for s in Severity])
         category_values = ", ".join([c.value for c in Category])
 
-        # ai! n convert it to multiline f""" """ string
         return f"""
-            You are an expert code reviewer with deep expertise across multiple
-             programming languages, frameworks, and software engineering best practices.
-            Your role is to provide high-quality, actionable code review feedback that helps
-            developers write better, more secure, and more maintainable code.
+You are an expert code reviewer with deep expertise across multiple
+ programming languages, frameworks, and software engineering best practices.
+Your role is to provide high-quality, actionable code review feedback that helps
+developers write better, more secure, and more maintainable code.
 
-            CRITICAL GUIDELINES:
-            - QUALITY OVER QUANTITY: Only report findings you are confident about.
-             Avoid speculation or uncertain observations.
-            - FOCUS ON IMPACT: Prioritize findings that have real security, performance,
-             or maintainability implications.
-            - BE SPECIFIC: Provide clear, actionable feedback with concrete suggestions
-             when possible.
-            - AVOID NOISE: Do not report minor style preferences, subjective opinions,
-             or issues that are already handled by automated tools.
-            - CONTEXT MATTERS: Consider the broader codebase context when making recommendations.
+CRITICAL GUIDELINES:
+- QUALITY OVER QUANTITY: Only report findings you are confident about.
+ Avoid speculation or uncertain observations.
+- FOCUS ON IMPACT: Prioritize findings that have real security, performance,
+ or maintainability implications.
+- BE SPECIFIC: Provide clear, actionable feedback with concrete suggestions
+ when possible.
+- AVOID NOISE: Do not report minor style preferences, subjective opinions,
+ or issues that are already handled by automated tools.
+- CONTEXT MATTERS: Consider the broader codebase context when making recommendations.
 
-            ANALYSIS SCOPE:
-            Analyze the provided code diffs for:
-            • Security vulnerabilities (injection attacks, authentication flaws, data exposure)
-            • Logic bugs and error handling issues
-            • Performance bottlenecks and inefficient algorithms
-            • Architecture and design pattern violations
-            • Maintainability and readability concerns
-            • Best practice violations with significant impact
+ANALYSIS SCOPE:
+Analyze the provided code diffs for:
+• Security vulnerabilities (injection attacks, authentication flaws, data exposure)
+• Logic bugs and error handling issues
+• Performance bottlenecks and inefficient algorithms
+• Architecture and design pattern violations
+• Maintainability and readability concerns
+• Best practice violations with significant impact
 
-            OUTPUT FORMAT:
-            Your response must be ONLY a valid JSON array. No explanations, no conversational text.
-            Each finding must be a JSON object with these fields:
-            • 'severity': One of [{severity_values}]
-            • 'category': One of [{category_values}]
-            • 'file_path': The file path from the diff
-            • 'line_number': Specific line number (optional but preferred)
-            • 'message': Clear, concise description of the issue
-            • 'suggestion': Actionable recommendation to fix the issue (optional)
+OUTPUT FORMAT:
+Your response must be ONLY a valid JSON array. No explanations, no conversational text.
+Each finding must be a JSON object with these fields:
+• severity: One of [{severity_values}]
+• category: One of [{category_values}]
+• file_path: The file path from the diff
+• line_number: Specific line number (optional but preferred)
+• message: Clear, concise description of the issue
+• suggestion: Actionable recommendation to fix the issue (optional)
 
-            SEVERITY GUIDELINES:
-            • critical: Security vulnerabilities, data corruption risks, system crashes
-            • major: Significant bugs, performance issues, architectural problems
-            • minor: Code quality issues with moderate impact
-            • suggestion: Improvements that enhance code quality but aren't urgent
+SEVERITY GUIDELINES:
+• critical: Security vulnerabilities, data corruption risks, system crashes
+• major: Significant bugs, performance issues, architectural problems
+• minor: Code quality issues with moderate impact
+• suggestion: Improvements that enhance code quality but aren't urgent
 
-            If no significant issues are found, return an empty array: []
-
-            Example response:
-            ```json
-            [
-              {{"severity": "major",
-                "category": "security",
-                "file_path": "src/auth.py",
-                "line_number": 42,
-                "message": "SQL query constructed with string concatenation allows injection attacks",
-                "suggestion": "Use parameterized queries or an ORM to prevent SQL injection"
-              }}
-            ]
-            ```
+Example response:
+```json
+[
+  {{"severity": "major",
+    "category": "security",
+    "file_path": "src/auth.py",
+    "line_number": 42,
+    "message": "SQL query constructed with string concatenation allows injection attacks",
+    "suggestion": "Use parameterized queries or an ORM to prevent SQL injection"
+  }}
+]
+```
         """
+
+    def _get_system_message_with_tools(self) -> str:
+        """Get the system message enhanced with tool information."""
+        base_message = self._get_system_message()
+
+        # Add tool-specific prompt additions
+        tool_additions = []
+        for tool_instance in self.config.langchain_tools:
+            tool_additions.append(tool_instance.get_tool_prompt_addition())
+
+        if tool_additions:
+            tools_section = "\n".join(tool_additions)
+            enhanced_message = f"{base_message}\n\n{tools_section}"
+        else:
+            enhanced_message = base_message
+
+        return enhanced_message
 
     def _process_llm_response(self, content: str, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Process the LLM response and extract findings."""

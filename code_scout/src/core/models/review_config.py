@@ -1,7 +1,8 @@
 from enum import Enum
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, List
 
-from pydantic import BaseModel
+if TYPE_CHECKING:
+    from core.interfaces.langchain_review_tool import LangChainReviewTool
 
 
 class ReviewType(str, Enum):
@@ -14,39 +15,21 @@ class ReviewType(str, Enum):
     REFACTORING = "refactoring"
 
 
-class ReviewConfig(BaseModel):
+class ReviewConfig:
     """Configuration for the code review pipeline."""
 
-    # Core review types
-    enabled_review_types: List[ReviewType] = [
-        ReviewType.BUGS,
-        ReviewType.SECURITY,
-        ReviewType.PERFORMANCE,
-        ReviewType.STYLE,
-        ReviewType.BEST_PRACTICES,
-    ]
-
-    # Pipeline configuration
-    enable_holistic_review: bool = True
-    enable_file_level_review: bool = True
-    enable_function_level_review: bool = True
-
-    # Output configuration
-    include_suggestions: bool = True
-    include_code_examples: bool = True
-
-    # Extensibility
-    custom_chains: List[str] = []
-    custom_tools: Dict[str, Any] = {}
-
-    # LLM configuration
-    max_tokens_per_request: int = 4000
-    temperature: float = 0.1
-    enable_structured_output: bool = True
-
-    # Code Excerpt Configuration
-    show_code_excerpts: bool = True
-    context_lines_before: int = 3
-    context_lines_after: int = 3
-    max_excerpt_lines: int = 20
-    max_file_size_kb: int = 500  # Skip files larger than this
+    def __init__(  # noqa: PLR0913
+        self,
+        langchain_tools: List["LangChainReviewTool"],
+        max_tool_calls_per_review: int = 10,
+        show_code_excerpts: bool = True,
+        context_lines_before: int = 3,
+        context_lines_after: int = 3,
+        max_excerpt_lines: int = 20,
+    ):
+        self.langchain_tools = langchain_tools
+        self.show_code_excerpts = show_code_excerpts
+        self.context_lines_before = context_lines_before
+        self.context_lines_after = context_lines_after
+        self.max_excerpt_lines = max_excerpt_lines
+        self.max_tool_calls_per_review = max_tool_calls_per_review

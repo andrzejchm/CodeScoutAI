@@ -12,6 +12,7 @@ from core.models.review_config import ReviewConfig
 from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
+from core.tools.file_content_tool import FileContentTool
 from src.cli.cli_utils import echo_info, show_spinner
 from src.cli.code_scout_context import CodeScoutContext
 
@@ -34,7 +35,15 @@ class CodeReviewAgent:
         self.llm_provider = llm_provider
         self.formatters = formatters
         self.cli_context = cli_context
-        self.config = config or ReviewConfig()
+        self.config = config or ReviewConfig(
+            langchain_tools=[
+                FileContentTool(),
+            ],
+            show_code_excerpts=True,
+            context_lines_before=3,
+            context_lines_after=3,
+            max_excerpt_lines=20,
+        )
 
         self.llm: BaseLanguageModel = self.llm_provider.get_llm(self.cli_context)
 

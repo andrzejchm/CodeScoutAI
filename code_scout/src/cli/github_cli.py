@@ -154,7 +154,7 @@ if __name__ == "__main__":
             repo_owner=os.getenv("CODESCOUT_REPO_OWNER"),
             repo_name=os.getenv("CODESCOUT_REPO_NAME"),
             github_token=os.getenv("CODESCOUT_GITHUB_API_KEY"),
-            pr_number=256,
+            pr_number=84,
         )
     except Exception as e:
         handle_cli_exception(e, message="Error reviewing pull request")

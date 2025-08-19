@@ -54,6 +54,9 @@ def select_option(message: str, choices: List[Tuple[str, T]]) -> Optional[T]:
     # When given (display, value) tuples, it displays 'display' and returns 'value'.
     # To satisfy type checkers, we convert the tuples to Choice objects.
     questionary_choices = [Choice(title=display, value=value) for display, value in choices]
+    if not questionary_choices:
+        return None
+
     return select(
         message,
         choices=questionary_choices,
@@ -99,6 +102,9 @@ def select_from_paginated_options(
         if not all_options_loaded:
             display_choices.append(("Show more...", "show_more"))  # type: ignore
 
+        if not display_choices:
+            echo_info("No more options available.")
+            return None
         selected_option = select_option(message, display_choices)
 
         if selected_option == "show_more":

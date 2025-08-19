@@ -25,8 +25,18 @@ class FileContentTool(LangChainReviewTool):
         ) -> str:
             """Get the complete content of a file that's part of the current code review.
 
-            Returns:
-                Complete file content as string, or error message if file not available
+            WHEN TO USE get_full_file_content:
+            - When diff context is insufficient to understand the change
+            - To see complete function/class definitions
+            - To understand imports and dependencies
+            - To analyze broader code patterns and architecture
+            - To check how modified code fits within the overall file structure
+
+            USAGE GUIDELINES:
+            - Only request files that are part of the current code review
+            - Use strategically - don\'t request files unless you need the additional context
+            - Focus on files where the diff doesn\'t provide enough information for thorough review
+            ', additional_kwargs={}, response_metadata={}, id='87f95f24-ecec-4031-8076-3d4e553badc0'),
             """
             if file_path not in self.file_content_map:
                 available_files = list(self.file_content_map.keys())
@@ -39,26 +49,3 @@ class FileContentTool(LangChainReviewTool):
             return content
 
         return get_full_file_content
-
-    def get_tool_prompt_addition(self) -> str:
-        """Return additional prompt text for file content tool."""
-        return """
-AVAILABLE TOOL:
-- get_full_file_content(file_path): Get complete content of files in the current review
-
-WHEN TO USE get_full_file_content:
-- When diff context is insufficient to understand the change
-- To see complete function/class definitions
-- To understand imports and dependencies
-- To analyze broader code patterns and architecture
-- To check how modified code fits within the overall file structure
-
-USAGE GUIDELINES:
-- Only request files that are part of the current code review
-- Use strategically - don't request files unless you need the additional context
-- Focus on files where the diff doesn't provide enough information for thorough review
-"""
-
-    def get_tool_name(self) -> str:
-        """Return the name of this tool."""
-        return "File Content Access"

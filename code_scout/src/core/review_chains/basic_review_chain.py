@@ -57,7 +57,7 @@ class BasicReviewChain(ReviewChain):
             echo_debug(f"using tool:\n{tool.args_schema.model_json_schema()}")
 
         # Create enhanced system message with tool information
-        system_message_content = self._get_system_message_with_tools()
+        system_message_content = self._get_system_message()
 
         # Create and execute agent
         agent = create_react_agent(
@@ -149,23 +149,6 @@ Example response:
 ]
 ```
         """
-
-    def _get_system_message_with_tools(self) -> str:
-        """Get the system message enhanced with tool information."""
-        base_message = self._get_system_message()
-
-        # Add tool-specific prompt additions
-        tool_additions = []
-        for tool_instance in self.config.langchain_tools:
-            tool_additions.append(tool_instance.get_tool_prompt_addition())
-
-        if tool_additions:
-            tools_section = "\n".join(tool_additions)
-            enhanced_message = f"{base_message}\n\n{tools_section}"
-        else:
-            enhanced_message = base_message
-
-        return enhanced_message
 
     def _process_llm_response(self, content: str, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Process the LLM response and extract findings."""

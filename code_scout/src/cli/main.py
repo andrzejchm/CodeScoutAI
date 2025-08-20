@@ -10,6 +10,7 @@ from cli.cli_config import cli_config
 from cli.code_scout_context import CodeScoutContext
 from cli.git_cli import app as git_app
 from cli.github_cli import app as github_app
+from cli.index_cli import app as index_app
 from core.llm_providers.langchain_provider import LangChainProvider
 from src.cli.cli_options import (
     claude_api_key_option,
@@ -78,6 +79,12 @@ app.add_typer(
     git_app,
     name="git",
     help="Commands for reviewing local Git repositories.",
+)
+
+app.add_typer(
+    index_app,
+    name="index",
+    help="Commands for managing the code index.",
 )
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 from langchain_core.tools import BaseTool, tool
 
@@ -12,7 +12,7 @@ class FileContentTool(LangChainReviewTool):
     def __init__(self):
         self.file_content_map = {}
 
-    def get_tool(self, diffs: List[CodeDiff]) -> BaseTool:
+    def get_tool(self, diffs: List[CodeDiff]) -> Optional[BaseTool]:
         """Create file content access tool configured for the given diffs."""
         # Build file content map from diffs
         self.file_content_map = {

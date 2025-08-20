@@ -53,8 +53,9 @@ class BasicReviewChain(ReviewChain):
         tools = []
         for tool_instance in self.config.langchain_tools:
             tool = tool_instance.get_tool(diffs)
-            tools.append(tool)
-            echo_debug(f"using tool:\n{tool.args_schema.model_json_schema()}")
+            if tool is not None:
+                tools.append(tool)
+                echo_debug(f"using tool:\n{tool.args_schema.model_json_schema()}")
 
         # Create enhanced system message with tool information
         system_message_content = self._get_system_message()

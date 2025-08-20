@@ -13,6 +13,7 @@ from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
+from core.tools.search_code_index_tool import SearchCodeIndexTool
 from src.cli.cli_utils import echo_info, show_spinner
 from src.cli.code_scout_context import CodeScoutContext
 
@@ -38,6 +39,7 @@ class CodeReviewAgent:
         self.config = config or ReviewConfig(
             langchain_tools=[
                 FileContentTool(),
+                SearchCodeIndexTool(),
             ],
             show_code_excerpts=True,
             context_lines_before=3,

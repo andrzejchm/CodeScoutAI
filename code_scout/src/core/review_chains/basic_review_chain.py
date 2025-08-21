@@ -55,7 +55,13 @@ class BasicReviewChain(ReviewChain):
             tool = tool_instance.get_tool(diffs)
             if tool is not None:
                 tools.append(tool)
-                echo_debug(f"using tool:\n{tool.args_schema.model_json_schema()}")
+                if tool.args_schema:
+                    if isinstance(tool.args_schema, dict):
+                        echo_debug(f"using tool:\n{json.dumps(tool.args_schema, indent=2)}")
+                    else:
+                        echo_debug(f"using tool: {tool.name} (args_schema type: {type(tool.args_schema)})")
+                else:
+                    echo_debug(f"using tool: {tool.name} (no args_schema)")
 
         # Create enhanced system message with tool information
         system_message_content = self._get_system_message()
@@ -85,8 +91,13 @@ class BasicReviewChain(ReviewChain):
             f"Agent response: {result}",
         )
 
-        result_messages: List[BaseMessage] = result.get("messages")
-        if result_messages and isinstance(result_messages[-1], BaseMessage):
+        result_messages = result.get("messages")
+        if (
+            result_messages
+            and isinstance(result_messages, List)
+            and result_messages
+            and isinstance(result_messages[-1], BaseMessage)
+        ):
             return str(result_messages[-1].content)
         return ""
 
@@ -191,8 +202,11 @@ Example response:
         json_match = re.search(r"```json\s*([\s\S]*?)\s*```", json_str)
         if json_match:
             return json_match.group(1).strip()
-        elif not json_str.startswith("[") and not json_str.endswith("]"):
-            return json_str[json_str.find("[") : json_str.rfind("]") + 1]
+        # If it doesn't have the ```json block, try to find the first [ and last ]
+        json_start = json_str.find("[")
+        json_end = json_str.rfind("]")
+        if json_start != -1 and json_end != -1 and json_end > json_start:
+            return json_str[json_start : json_end + 1]
         return json_str
 
     def _create_findings_from_data(self, findings_data: list, file_path_to_diff: dict) -> List[ReviewFinding]:

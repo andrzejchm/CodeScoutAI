@@ -27,6 +27,7 @@ load_dotenv()
 app = typer.Typer(
     help="Code Scout CLI for automated code reviews.",
     no_args_is_help=True,
+    pretty_exceptions_short=False,
 )
 
 

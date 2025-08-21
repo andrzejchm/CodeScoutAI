@@ -1,21 +1,16 @@
-import os
 from typing import List, Tuple
 
 import typer
-from click import Command
 from dotenv import load_dotenv
+from typer.testing import CliRunner
 
+from cli.cli_config import cli_config
 from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.github_diff_provider import GitHubDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
 from src.cli.cli_formatter import CliFormatter
-from src.cli.cli_options import (
-    github_token_option,
-    pr_number_option,
-    repo_name_option,
-    repo_owner_option,
-)
+from src.cli.cli_options import github_token_option, pr_number_option, repo_name_option, repo_owner_option
 from src.cli.cli_utils import (
     echo_info,
     echo_warning,
@@ -137,24 +132,16 @@ def interactive_review(
 
 if __name__ == "__main__":
     load_dotenv(".codescout.env")
+    cli_config.is_debug = True
+    runner = CliRunner()
+    from cli import main
 
-    try:
-        _perform_review(
-            ctx=typer.Context(
-                command=Command(
-                    name="interactive-review",
-                ),
-                obj=CodeScoutContext(
-                    model=os.getenv("CODESCOUT_MODEL"),
-                    openrouter_api_key=os.getenv("CODESCOUT_OPENROUTER_API_KEY"),
-                    openai_api_key="",
-                    claude_api_key="",
-                ),
-            ),
-            repo_owner=os.getenv("CODESCOUT_REPO_OWNER"),
-            repo_name=os.getenv("CODESCOUT_REPO_NAME"),
-            github_token=os.getenv("CODESCOUT_GITHUB_API_KEY"),
-            pr_number=84,
-        )
-    except Exception as e:
-        handle_cli_exception(e, message="Error reviewing pull request")
+    # Example usage of review-pr command
+    result = runner.invoke(
+        main.app,
+        ["github", "review-pr", "--pr-number", "258"],
+        catch_exceptions=False,
+        color=True,
+    )
+    print(f"Err: {result.stderr}")
+    print(f"stdout: {result.stdout}")

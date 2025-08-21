@@ -16,6 +16,7 @@ class CodeIndexRepository:
             db_path: Path to the SQLite database file
         """
         self.db_path = db_path
+        self.initialize_database()
 
     def initialize_database(self) -> None:
         """Creates all tables, triggers, and indexes. This operation is idempotent."""
@@ -54,7 +55,7 @@ class CodeIndexRepository:
                     file_hash TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    
+
                     UNIQUE(file_path, symbol_type, name, line_number, end_line_number)
                 )
             """)
@@ -76,24 +77,28 @@ class CodeIndexRepository:
 
             # Create triggers for FTS synchronization
             cursor.execute("""
-                CREATE TRIGGER IF NOT EXISTS code_index_after_insert 
+                CREATE TRIGGER IF NOT EXISTS code_index_after_insert
                 AFTER INSERT ON code_index BEGIN
                     INSERT INTO code_index_fts(rowid, name, signature, docstring, parent_symbol, file_path, language)
-                    VALUES (new.id, new.name, new.signature, new.docstring, new.parent_symbol, new.file_path, new.language);
+                    VALUES (
+                        new.id, new.name, new.signature, new.docstring, new.parent_symbol, new.file_path, new.language
+                    );
                 END
             """)
 
             cursor.execute("""
-                CREATE TRIGGER IF NOT EXISTS code_index_after_update 
+                CREATE TRIGGER IF NOT EXISTS code_index_after_update
                 AFTER UPDATE ON code_index BEGIN
                     INSERT INTO code_index_fts(code_index_fts, rowid) VALUES('delete', old.id);
                     INSERT INTO code_index_fts(rowid, name, signature, docstring, parent_symbol, file_path, language)
-                    VALUES (new.id, new.name, new.signature, new.docstring, new.parent_symbol, new.file_path, new.language);
+                    VALUES (
+                        new.id, new.name, new.signature, new.docstring, new.parent_symbol, new.file_path, new.language
+                    );
                 END
             """)
 
             cursor.execute("""
-                CREATE TRIGGER IF NOT EXISTS code_index_after_delete 
+                CREATE TRIGGER IF NOT EXISTS code_index_after_delete
                 AFTER DELETE ON code_index BEGIN
                     INSERT INTO code_index_fts(code_index_fts, rowid) VALUES('delete', old.id);
                 END
@@ -167,8 +172,8 @@ class CodeIndexRepository:
                         symbol.name,
                         symbol.symbol_type,
                         symbol.file_path,
-                        symbol.line_number,
-                        symbol.column_number,
+                        symbol.start_line_number,
+                        symbol.start_column_number,
                         symbol.end_line_number,
                         symbol.end_column_number,
                         symbol.language,
@@ -192,7 +197,14 @@ class CodeIndexRepository:
             cursor.execute("DELETE FROM code_index WHERE file_path = ?", (file_path,))
             conn.commit()
 
-    def search_fts(self, query: str, filters: dict) -> List[CodeSymbol]:
+    def count_symbols_by_file(self, file_path: str) -> int:
+        """Count the number of symbols for a given file."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM code_index WHERE file_path = ?", (file_path,))
+            return cursor.fetchone()["count"]
+
+    def search_fts(self, query: str, filters: dict[str, Any]) -> List[CodeSymbol]:
         """Perform a search against the FTS table with optional filters."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -206,7 +218,7 @@ class CodeIndexRepository:
                 JOIN code_index_fts fts ON ci.id = fts.rowid
                 WHERE code_index_fts MATCH ?
             """
-            params = [fts_query]
+            params: List[Any] = [fts_query]
 
             # Apply filters
             if filters.get("symbol_type"):
@@ -266,23 +278,23 @@ class CodeIndexRepository:
 
             # Get symbols by type
             cursor.execute("""
-                SELECT symbol_type, COUNT(*) as count 
-                FROM code_index 
+                SELECT symbol_type, COUNT(*) as count
+                FROM code_index
                 GROUP BY symbol_type
             """)
             symbols_by_type = {row["symbol_type"]: row["count"] for row in cursor.fetchall()}
 
             # Get symbols by language
             cursor.execute("""
-                SELECT language, COUNT(*) as count 
-                FROM code_index 
+                SELECT language, COUNT(*) as count
+                FROM code_index
                 GROUP BY language
             """)
             symbols_by_language = {row["language"]: row["count"] for row in cursor.fetchall()}
 
             # Get last updated
             cursor.execute("""
-                SELECT MAX(last_indexed) as last_updated 
+                SELECT MAX(last_indexed) as last_updated
                 FROM indexed_files
             """)
             last_updated_row = cursor.fetchone()
@@ -298,6 +310,19 @@ class CodeIndexRepository:
                 last_updated=last_updated,
             )
 
+    def get_distinct_symbol_types(self) -> List[str]:
+        """
+        Get distinct symbol types present in the index.
+
+        Returns:
+            List of symbol type strings
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT symbol_type FROM code_index ORDER BY symbol_type")
+            rows = cursor.fetchall()
+            return [row["symbol_type"] for row in rows]
+
     def get_indexed_files(self) -> List[Dict[str, Any]]:
         """Retrieve all file paths and hashes."""
         with self._get_connection() as conn:
@@ -309,6 +334,29 @@ class CodeIndexRepository:
             """)
             return [dict(row) for row in cursor.fetchall()]
 
+    def clear_index(self) -> None:
+        """
+        Clear all data from the code_index and indexed_files tables.
+        If the database file does not exist, this method does nothing.
+        """
+        if not self.index_exists():
+            return
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM code_index")
+            cursor.execute("DELETE FROM indexed_files")
+            conn.commit()
+
+    def index_exists(self) -> bool:
+        """
+        Check if the index database file exists.
+
+        Returns:
+            True if the database file exists, False otherwise
+        """
+        return Path(self.db_path).exists()
+
     def validate_schema(self) -> bool:
         """Check if the database schema is valid."""
         try:
@@ -319,7 +367,7 @@ class CodeIndexRepository:
                 required_tables = ["code_index", "code_index_fts", "indexed_files", "code_index_meta"]
                 cursor.execute(
                     """
-                    SELECT name FROM sqlite_master 
+                    SELECT name FROM sqlite_master
                     WHERE type='table' AND name IN ({})
                 """.format(",".join("?" * len(required_tables))),
                     required_tables,
@@ -334,10 +382,7 @@ class CodeIndexRepository:
                 # Check if FTS table is properly configured
                 cursor.execute("SELECT sql FROM sqlite_master WHERE name='code_index_fts'")
                 fts_sql = cursor.fetchone()
-                if not fts_sql or "fts5" not in fts_sql["sql"].lower():
-                    return False
-
-                return True
+                return fts_sql and "fts5" in fts_sql["sql"].lower()
 
         except Exception:
             return False
@@ -349,8 +394,8 @@ class CodeIndexRepository:
             name=row["name"],
             symbol_type=row["symbol_type"],
             file_path=row["file_path"],
-            line_number=row["line_number"],
-            column_number=row["column_number"],
+            start_line_number=row["line_number"],
+            start_column_number=row["column_number"],
             end_line_number=row["end_line_number"],
             end_column_number=row["end_column_number"],
             language=row["language"],

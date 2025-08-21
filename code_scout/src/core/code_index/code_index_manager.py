@@ -1,12 +1,15 @@
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List, Optional
 
-from .code_index_config import CodeIndexConfig
-from .code_index_extractor import CodeIndexExtractor
-from .code_index_repository import CodeIndexRepository
-from .models import CodeIndexQuery, CodeSymbol, IndexResult, IndexStats, UpdateResult
+from gitignore_parser import parse_gitignore
+
+from cli.cli_utils import echo_info
+from core.code_index.code_index_config import CodeIndexConfig
+from core.code_index.code_index_extractor import CodeIndexExtractor
+from core.code_index.code_index_repository import CodeIndexRepository
+from core.code_index.models import CodeIndexQuery, CodeSymbol, IndexResult, IndexStats, UpdateResult
 
 
 class CodeIndexManager:
@@ -18,389 +21,224 @@ class CodeIndexManager:
     """
 
     def __init__(self, config: CodeIndexConfig):
-        """
-        Initialize the manager with configuration.
-
-        Args:
-            config: Configuration object containing database path and other settings
-        """
         self.config = config
         self.repository = CodeIndexRepository(config.db_path)
         self.extractor = CodeIndexExtractor()
 
-    def build_index(self, repo_path: str) -> IndexResult:
+    def build_index(
+        self,
+        code_paths: List[str],
+        print_file_paths: bool,
+    ) -> IndexResult:
         """
-        Build a complete index for the repository.
-
-        Args:
-            repo_path: Path to the repository root
+        Builds the code index for the configured code paths.
 
         Returns:
-            IndexResult with operation status and statistics
+            An IndexResult object indicating success or failure and statistics.
         """
-        try:
-            # Initialize the database
-            self.repository.initialize_database()
-
-            # Scan for files
-            files_to_index = self._scan_files(repo_path)
-
-            total_symbols = 0
-            total_files = 0
-            errors = []
-
-            for file_path in files_to_index:
-                try:
-                    # Calculate file hash
-                    file_hash = self._calculate_file_hash(file_path)
-
-                    # Read file content
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
-
-                    # Extract symbols
-                    symbols = self.extractor.extract_symbols(file_path, content)
-
-                    if symbols:
-                        # Update file paths to be relative to repo_path
-                        relative_path = os.path.relpath(file_path, repo_path)
-                        for symbol in symbols:
-                            symbol.file_path = relative_path
-                            symbol.file_hash = file_hash
-
-                        # Insert symbols into database
-                        self.repository.insert_symbols(symbols)
-                        total_symbols += len(symbols)
-
-                    # Update file tracking
-                    relative_path = os.path.relpath(file_path, repo_path)
-                    self.repository.update_file_tracking(relative_path, file_hash, len(symbols))
-                    total_files += 1
-
-                except Exception as e:
-                    errors.append(f"Error processing {file_path}: {e!s}")
-
-            return IndexResult(
-                success=True,
-                message=f"Successfully indexed {total_files} files with {total_symbols} symbols",
-                symbols_indexed=total_symbols,
-                files_processed=total_files,
-                errors=errors,
-            )
-
-        except Exception as e:
-            return IndexResult(
-                success=False,
-                message=f"Failed to build index: {e!s}",
-                symbols_indexed=0,
-                files_processed=0,
-                errors=[str(e)],
-            )
+        self.repository.clear_index()
+        return self._index_code_paths(
+            code_paths=code_paths,
+            print_file_paths=print_file_paths,
+        )
 
     def update_file(self, file_path: str) -> UpdateResult:
         """
-        Update the index for a single file.
+        Updates the code index for a specific file.
 
         Args:
-            file_path: Path to the file to update
+            file_path: The path to the file to update.
 
         Returns:
-            UpdateResult with operation status and statistics
+            An UpdateResult object indicating the outcome of the update.
         """
+        file_path_obj = Path(file_path)
+        if not file_path_obj.is_file():
+            return UpdateResult(success=False, message=f"File not found: {file_path}")
+
+        current_hash = _calculate_file_hash(file_path)
+        stored_hash = self.repository.get_file_hash(file_path)
+
+        if current_hash == stored_hash:
+            return UpdateResult(success=True, message="No changes detected", symbols_added=0, symbols_removed=0)
+
+        old_symbol_count = self.repository.count_symbols_by_file(file_path)
+        self.repository.delete_symbols_by_file(file_path)
+
         try:
-            # Calculate new file hash
-            new_hash = self._calculate_file_hash(file_path)
-
-            # Get stored hash
-            stored_hash = self.repository.get_file_hash(file_path)
-
-            # If hashes match, no update needed
-            if stored_hash == new_hash:
-                return UpdateResult(
-                    success=True,
-                    message="File unchanged, no update needed",
-                    symbols_updated=0,
-                    symbols_added=0,
-                    symbols_removed=0,
-                )
-
-            # Check if this is a file rename (hash exists at different path)
-            if stored_hash is None:
-                # Check if the hash exists for a different file
-                indexed_files = self.repository.get_indexed_files()
-                for indexed_file in indexed_files:
-                    if indexed_file["file_hash"] == new_hash:
-                        # This is likely a renamed file
-                        old_path = indexed_file["file_path"]
-                        self.repository.delete_symbols_by_file(old_path)
-                        break
-
-            # Remove old symbols for this file
-            old_symbols_count = 0
-            if stored_hash:
-                # Count existing symbols before deletion
-                with self.repository._get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT COUNT(*) as count FROM code_index WHERE file_path = ?", (file_path,))
-                    old_symbols_count = cursor.fetchone()["count"]
-
-                self.repository.delete_symbols_by_file(file_path)
-
-            # Read file content
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-
-            # Extract new symbols
             symbols = self.extractor.extract_symbols(file_path, content)
-
-            symbols_added = 0
-            if symbols:
-                # Update file hash for all symbols
-                for symbol in symbols:
-                    symbol.file_hash = new_hash
-
-                # Insert new symbols
-                self.repository.insert_symbols(symbols)
-                symbols_added = len(symbols)
-
-            # Update file tracking
-            self.repository.update_file_tracking(file_path, new_hash, symbols_added)
+            self.repository.insert_symbols(symbols)
+            self.repository.update_file_tracking(file_path, current_hash, len(symbols))
 
             return UpdateResult(
                 success=True,
-                message=f"Successfully updated file with {symbols_added} symbols",
-                symbols_updated=0,  # We replace rather than update
-                symbols_added=symbols_added,
-                symbols_removed=old_symbols_count,
+                message="File updated successfully",
+                symbols_added=len(symbols),
+                symbols_removed=old_symbol_count,
             )
-
         except Exception as e:
-            return UpdateResult(
-                success=False,
-                message=f"Failed to update file: {e!s}",
-                symbols_updated=0,
-                symbols_added=0,
-                symbols_removed=0,
-                errors=[str(e)],
-            )
+            return UpdateResult(success=False, message=f"Error processing file {file_path}: {e}")
 
-    def rebuild_index(self, repo_path: str) -> IndexResult:
+    def rebuild_index(
+        self,
+        code_paths: List[str],
+        print_file_paths: bool,
+    ) -> IndexResult:
         """
-        Clear the existing index and rebuild it from scratch.
+        Rebuilds the entire code index from scratch for the configured code paths.
 
-        Args:
-            repo_path: Path to the repository root
+        Arguments:
+            code_paths: The code paths to rebuild.
+            print_file_paths: whether to print paths of files that are being rebuilt.
 
         Returns:
-            IndexResult with operation status and statistics
+            An IndexResult object indicating success or failure and statistics.
         """
-        try:
-            # Clear existing data
-            if self.index_exists():
-                with self.repository._get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM code_index")
-                    cursor.execute("DELETE FROM indexed_files")
-                    conn.commit()
-
-            # Rebuild from scratch
-            return self.build_index(repo_path)
-
-        except Exception as e:
-            return IndexResult(
-                success=False,
-                message=f"Failed to rebuild index: {e!s}",
-                symbols_indexed=0,
-                files_processed=0,
-                errors=[str(e)],
-            )
+        self.repository.clear_index()
+        return self._index_code_paths(
+            code_paths=code_paths,
+            print_file_paths=print_file_paths,
+        )
 
     def search_symbols(self, query: CodeIndexQuery) -> List[CodeSymbol]:
         """
-        Search for symbols using the provided query.
+        Searches for code symbols in the index.
 
         Args:
-            query: Search query with text and optional filters
+            query: A CodeIndexQuery object specifying the search criteria.
 
         Returns:
-            List of matching CodeSymbol objects
+            A list of CodeSymbol objects matching the query.
         """
-        try:
-            # Build filters dictionary
-            filters: Dict[str, Any] = {"limit": query.limit}
-
-            if query.symbol_type:
-                filters["symbol_type"] = query.symbol_type
-
-            if query.file_pattern:
-                filters["file_pattern"] = query.file_pattern
-
-            # Use repository's FTS search
-            return self.repository.search_fts(query.text, filters)
-
-        except Exception as e:
-            print(f"Search error: {e}")
-            return []
+        filters = {
+            "symbol_type": query.symbol_type,
+            "file_pattern": query.file_pattern,
+            "language": query.language,
+            "limit": query.limit,
+        }
+        return self.repository.search_fts(query.text, filters)
 
     def get_index_stats(self) -> IndexStats:
         """
-        Retrieve statistics about the current index.
+        Retrieves statistics about the code index.
 
         Returns:
-            IndexStats object with current statistics
+            An IndexStats object containing various statistics.
         """
         return self.repository.get_index_stats()
 
     def get_symbol_types(self) -> List[str]:
         """
-        Get distinct symbol types present in the index.
+        Retrieves a list of distinct symbol types present in the index.
 
         Returns:
-            List of symbol type strings
+            A list of strings, each representing a unique symbol type.
         """
-        try:
-            with self.repository._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT DISTINCT symbol_type FROM code_index ORDER BY symbol_type")
-                rows = cursor.fetchall()
-                return [row["symbol_type"] for row in rows]
-        except Exception:
-            return []
+        return self.repository.get_distinct_symbol_types()
 
     def index_exists(self) -> bool:
         """
-        Check if the index database file exists.
+        Checks if the code index database file exists.
 
         Returns:
-            True if the database file exists, False otherwise
+            True if the database exists, False otherwise.
         """
-        return Path(self.config.db_path).exists()
+        return self.repository.index_exists()
 
     def validate_schema(self) -> bool:
         """
-        Validate that the database schema is correct.
+        Validates the schema of the code index database.
 
         Returns:
-            True if schema is valid, False otherwise
+            True if the schema is valid, False otherwise.
         """
         return self.repository.validate_schema()
 
-    def _scan_files(self, repo_path: str) -> List[str]:
+    def _index_code_paths(
+        self,
+        code_paths: List[str],
+        print_file_paths: bool,
+    ) -> IndexResult:
         """
-        Scan repository for source files, respecting .gitignore.
-
-        Args:
-            repo_path: Path to repository root
-
-        Returns:
-            List of file paths to index
+        Internal method to index a list of code paths.
         """
-        repo_path_obj = Path(repo_path)
-        files_to_index = []
+        total_symbols_indexed = 0
+        total_files_processed = 0
+        errors: List[str] = []
 
-        # Load .gitignore patterns
-        gitignore_patterns = self._load_gitignore_patterns(repo_path_obj)
+        for code_path in code_paths:
+            repo_path_obj = Path(code_path)
+            if not repo_path_obj.exists():
+                errors.append(f"Code path does not exist: {code_path}")
+                continue
 
-        # Scan for files
-        for file_path in repo_path_obj.rglob("*"):
-            if file_path.is_file():
-                # Check if file should be ignored
-                relative_path = file_path.relative_to(repo_path_obj)
-                if not self._should_ignore_file(relative_path, gitignore_patterns) and self.extractor._detect_language(
-                    str(file_path)
-                ):
-                    files_to_index.append(str(file_path))
+            gitignore_path = repo_path_obj / ".gitignore"
+            matches = parse_gitignore(gitignore_path, repo_path_obj.as_posix()) if gitignore_path.exists() else None
 
-        return files_to_index
+            for file_path_str in self._scan_files(code_path, matches):
+                relative_file_path = str(Path(file_path_str).relative_to(repo_path_obj))
 
-    def _load_gitignore_patterns(self, repo_path: Path) -> List[str]:
-        """
-        Load patterns from .gitignore file.
+                total_files_processed += 1
+                try:
+                    if print_file_paths:
+                        echo_info(file_path_str)
+                    current_hash = _calculate_file_hash(file_path_str)
+                    with open(file_path_str, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
 
-        Args:
-            repo_path: Path to repository root
+                    symbols = self.extractor.extract_symbols(file_path_str, content)
 
-        Returns:
-            List of gitignore patterns
-        """
-        gitignore_path = repo_path / ".gitignore"
-        patterns = []
+                    for symbol in symbols:
+                        symbol.file_path = relative_file_path
+                        symbol.file_hash = current_hash
 
-        if gitignore_path.exists():
-            try:
-                with open(gitignore_path, "r", encoding="utf-8") as f:
-                    for file_line in f:
-                        line = file_line.strip()
-                        if line and not line.startswith("#"):
-                            patterns.append(line)
-            except Exception:
-                pass  # Ignore errors reading .gitignore
+                    self.repository.insert_symbols(symbols)
+                    self.repository.update_file_tracking(relative_file_path, current_hash, len(symbols))
+                    total_symbols_indexed += len(symbols)
+                except Exception as e:
+                    errors.append(f"Error processing file {file_path_str}: {e}")
 
-        # Add common patterns to ignore
-        patterns.extend(
-            [
-                ".git/*",
-                ".git/**",
-                "*.pyc",
-                "__pycache__/*",
-                "__pycache__/**",
-                ".venv/*",
-                ".venv/**",
-                "node_modules/*",
-                "node_modules/**",
-                ".DS_Store",
-                "*.log",
-            ]
+        return IndexResult(
+            success=not errors,
+            message="Index built successfully" if not errors else "Index built with errors",
+            symbols_indexed=total_symbols_indexed,
+            files_processed=total_files_processed,
+            errors=errors,
         )
 
-        return patterns
-
-    def _should_ignore_file(self, file_path: Path, patterns: List[str]) -> bool:
+    def _scan_files(self, code_path: str, gitignore_matches: Optional[Any]) -> List[str]:
         """
-        Check if a file should be ignored based on gitignore patterns.
-
-        Args:
-            file_path: Relative path to the file
-            patterns: List of gitignore patterns
-
-        Returns:
-            True if file should be ignored, False otherwise
+        Scans the given code path for files to be indexed, respecting .gitignore and file extensions.
         """
-        file_str = str(file_path)
+        file_paths: List[str] = []
+        code_path_obj = Path(code_path)
+        for root, _, files in os.walk(code_path):
+            for file in files:
+                file_path = Path(root) / file
+                file_path_str = file_path.as_posix()
+                relative_to_code_path = file_path.relative_to(code_path_obj).as_posix()
 
-        for pattern in patterns:
-            # Simple pattern matching - could be enhanced with proper gitignore parsing
-            if pattern.endswith("/*") or pattern.endswith("/**"):
-                # Directory pattern
-                dir_pattern = pattern.rstrip("/*")
-                if file_str.startswith(dir_pattern + "/"):
-                    return True
-            elif "*" in pattern:
-                # Wildcard pattern - basic implementation
-                import fnmatch
+                if gitignore_matches and gitignore_matches(relative_to_code_path):
+                    continue
 
-                if fnmatch.fnmatch(file_str, pattern):
-                    return True
-            # Exact match or directory
-            elif file_str == pattern or file_str.startswith(pattern + "/"):
-                return True
+                if self.config.file_extensions:
+                    file_extension = file_path.suffix.lstrip(".")
+                    if file_extension not in self.config.file_extensions:
+                        continue
 
-        return False
+                if not self.extractor.detect_language(file_path_str):
+                    continue
 
-    def _calculate_file_hash(self, file_path: str) -> str:
-        """
-        Calculate SHA256 hash of file contents.
+                file_paths.append(file_path_str)
+        return file_paths
 
-        Args:
-            file_path: Path to the file
 
-        Returns:
-            Hexadecimal hash string
-        """
-        hasher = hashlib.sha256()
-
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hasher.update(chunk)
-
-        return hasher.hexdigest()
+def _calculate_file_hash(file_path: str) -> str:
+    """Calculates the SHA256 hash of a file's content."""
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()

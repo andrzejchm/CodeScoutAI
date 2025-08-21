@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
@@ -6,6 +8,19 @@ from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
+
+
+class CustomFakeChatModel(FakeListChatModel):
+    def bind_tools(
+        self,
+        tools,  # noqa ARG002
+        *,
+        tool_choice=None,  # noqa ARG002
+        **kwargs: Any,  # noqa ARG002
+    ):
+        # This is a dummy implementation for testing purposes
+        # It should return a runnable, but for this test, we just need to avoid NotImplementedError
+        return self
 
 
 @pytest.fixture
@@ -23,7 +38,7 @@ def mock_llm() -> BaseLanguageModel:
           }
         ]"""
     ]
-    return FakeListChatModel(responses=responses)
+    return CustomFakeChatModel(responses=responses)
 
 
 @pytest.fixture
@@ -40,7 +55,8 @@ def mock_llm_no_tools():
           }
         ]"""
     ]
-    return FakeListChatModel(responses=responses)
+
+    return CustomFakeChatModel(responses=responses)
 
 
 @pytest.fixture
@@ -94,6 +110,9 @@ def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
 
 def test_basic_review_chain_without_tools(mock_llm_no_tools, sample_code_diff):
     """Test BasicReviewChain without LangChain tools enabled (agent still used)."""
+    mock_llm_no_tools.responses[0] = mock_llm_no_tools.responses[0].replace(
+        '"severity": "suggestion",', '"severity": "suggestion", "file_path": "tests/temp_test_file.py",'
+    )
     config = ReviewConfig(
         langchain_tools=[],  # No tools provided
     )

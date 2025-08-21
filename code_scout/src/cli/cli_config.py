@@ -1,6 +1,3 @@
-# code_scout/src/cli/cli_config.py
-
-
 class CLIConfig:
     """
     Centralized configuration for the CLI application.

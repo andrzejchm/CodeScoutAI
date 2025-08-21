@@ -116,8 +116,8 @@ class SearchCodeIndexTool(LangChainReviewTool):
                 symbol_info += f" in {symbol.parent_symbol}"
 
             # Add location info
-            location = f"{symbol.file_path}:{symbol.line_number}"
-            if symbol.end_line_number and symbol.end_line_number != symbol.line_number:
+            location = f"{symbol.file_path}:{symbol.start_line_number}"
+            if symbol.end_line_number and symbol.end_line_number != symbol.start_line_number:
                 location += f"-{symbol.end_line_number}"
 
             formatted_lines.append(f"   {symbol_info}")

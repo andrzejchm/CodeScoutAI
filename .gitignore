@@ -74,3 +74,4 @@ wheels/
 .venv/
 woodpecker.db
 *.env
+code_index.db

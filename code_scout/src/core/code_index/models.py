@@ -11,8 +11,8 @@ class CodeSymbol(BaseModel):
     name: str
     symbol_type: str  # 'function', 'class', 'method', 'variable', 'import'
     file_path: str
-    line_number: int
-    column_number: Optional[int] = None
+    start_line_number: int
+    start_column_number: Optional[int] = None
     end_line_number: Optional[int] = None
     end_column_number: Optional[int] = None
     language: str
@@ -23,8 +23,17 @@ class CodeSymbol(BaseModel):
     parameters: Optional[str] = None  # JSON array of parameter info
     return_type: Optional[str] = None
     file_hash: str  # For change detection
+    source_code: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class CodeFile(BaseModel):
+    """Represents a code file with its path, language, and hash."""
+
+    file_path: str
+    language: str
+    file_hash: str
 
 
 class CodeIndexQuery(BaseModel):
@@ -35,6 +44,7 @@ class CodeIndexQuery(BaseModel):
     file_pattern: Optional[str] = None
     limit: int = 20
     boost_paths: Optional[List[str]] = None
+    language: Optional[str] = None
 
 
 class IndexResult(BaseModel):

@@ -4,18 +4,21 @@ from typing import Any, Callable, List, Optional, Tuple, TypeVar
 
 import typer
 from questionary import Choice, Style, select
+from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from cli.cli_config import cli_config  # Import the config instance
+from cli.cli_config import cli_config
 
 T = TypeVar("T")
+
+err_console = Console(stderr=True, soft_wrap=True)
 
 
 def echo_debug(message: str):
     """
     Echoes a debug message with a grayish color using typer.echo, only if debug mode is enabled.
     """
-    if cli_config.is_debug:  # Use the config instance
+    if cli_config.is_debug:
         typer.echo(typer.style(f"[DEBUG] {message}", fg=typer.colors.BRIGHT_BLACK))
 
 
@@ -31,6 +34,13 @@ def echo_warning(message: str):
     Echoes a warning message with a yellow color using typer.echo.
     """
     typer.echo(typer.style(message, fg=typer.colors.YELLOW))
+
+
+def echo_error(message: str):
+    """
+    Echoes an error message with a red color using typer.echo.
+    """
+    err_console.print(message)
 
 
 def select_option(message: str, choices: List[Tuple[str, T]]) -> Optional[T]:
@@ -97,7 +107,7 @@ def select_from_paginated_options(
         elif not current_page_options:
             all_options_loaded = True
 
-        display_choices = list(current_page_options)  # Make a mutable copy
+        display_choices = list(current_page_options)
 
         if not all_options_loaded:
             display_choices.append(("Show more...", "show_more"))  # type: ignore
@@ -110,10 +120,8 @@ def select_from_paginated_options(
         if selected_option == "show_more":
             page += 1
         elif selected_option is None:
-            # User cancelled
             return None
         else:
-            # A valid option was selected
             return selected_option
 
 
@@ -132,24 +140,28 @@ def show_spinner(label: str):
         progress.remove_task(task_id)
 
 
-def get_option_or_env_var(
-    option_value: Optional[str],
+def get_option_or_env_var(  # noqa PLR013
+    param_decls: List[str],
+    option_value: Optional[Any],
     env_var_name: str,
     prompt_message: Optional[str] = None,
     required: bool = False,
     secure_input: bool = False,
-) -> Optional[str]:
+    is_list: bool = False,
+) -> Optional[Any]:
     """
     Retrieves a value from a Typer option or an environment variable.
     If the value is missing and `required` is True, it prompts the user for input.
 
     Args:
+        param_decls: The parameter name declared in a Typer option.
         option_value: The value passed via the Typer option.
         env_var_name: The name of the environment variable to check.
         prompt_message: The message to display if prompting the user for input.
         required: If True, the user will be prompted if the value is missing.
                   If False, None is returned if the value is not found.
         secure_input: If True, the user's input will be hidden (e.g., for API keys).
+        is_list: If True, the environment variable value will be split by comma.
 
     Returns:
         The retrieved value, or None if not found and not required.
@@ -157,68 +169,80 @@ def get_option_or_env_var(
     Raises:
         typer.Exit: If the value is required but not provided by the user.
     """
-
-    if option_value is not None:
+    if is_list and isinstance(option_value, list) and len(option_value) > 0:
         return option_value
-
-    # Use os.getenv to get the environment variable
+    if not is_list and option_value:
+        return option_value
     env_value = os.getenv(env_var_name)
 
     if env_value is not None:
+        if is_list:
+            return [item.strip() for item in env_value.split(",") if item.strip()]
         return env_value
 
     if required:
         if prompt_message:
             value = typer.prompt(prompt_message, hide_input=secure_input)
             if value:
+                if is_list:
+                    return [item.strip() for item in value.split(",") if item.strip()]
                 return value
             else:
-                echo_warning(f"Error: {env_var_name} is required but was not provided.")
+                echo_error(
+                    f"Error: {param_decls} or {env_var_name.strip()} env variable is required but was not provided."
+                )
                 raise typer.Exit(code=1)
         else:
-            echo_warning(f"Error: {env_var_name} is required but was not provided.")
+            echo_error(f"Error: {param_decls} or {env_var_name.strip()} env variable is required but was not provided.")
             raise typer.Exit(code=1)
-
+    elif is_list:
+        return []
     return None
 
 
-def cli_option(
-    env_var_name: str,
+def cli_option(  # noqa PLR013
+    param_decls: List[str],
+    env_var_name: str = "",
     prompt_message: Optional[str] = None,
     required: bool = False,
     secure_input: bool = False,
     help: Optional[str] = None,
+    default: Optional[Any] = None,
+    is_list: bool = False,
 ) -> Any:
     """
     A custom Typer Option factory that integrates environment variable lookup
     and interactive prompting.
 
     Args:
+        param_decls: List of parameter declaration strings (e.g., ["--name", "-n"]).
         env_var_name: The name of the environment variable to check.
         prompt_message: The message to display if prompting the user for input.
         required: If True, the user will be prompted if the value is missing.
         secure_input: If True, the user's input will be hidden (e.g., for API keys).
-        **kwargs: Additional keyword arguments to pass to typer.Option.
+        help: The help message for the CLI option.
+        default: The default value for the option.
+        is_list: If True, the option expects a list of values (e.g., multiple --code-path).
 
     Returns:
         A typer.Option object configured with the custom callback.
     """
 
-    def callback(value: Optional[str]):
-        # The 'required' parameter here is passed from CustomOption's arguments
-        # to get_option_or_env_var.
+    def callback(value: Optional[Any]):
         return get_option_or_env_var(
+            param_decls=param_decls,
             option_value=value,
             env_var_name=env_var_name,
             prompt_message=prompt_message,
-            required=required,  # Use the 'required' from CustomOption
+            required=required,
             secure_input=secure_input,
+            is_list=is_list,
         )
 
     return typer.Option(
+        default if default is not None else [] if is_list else None,
+        *param_decls,
         callback=callback,
-        envvar=env_var_name,
-        default=None,
         help=help,
     )
 
@@ -231,6 +255,6 @@ def handle_cli_exception(e: Exception, message: str = "An error occurred"):
     if cli_config.is_debug:
         raise e  # Re-raises the original exception, preserving its full stack trace
     else:
-        echo_warning(f"{message}: {e}")
+        echo_error(f"{message}: {e}")
         # Raise a new typer.Exit, but chain the original exception 'e'
         raise typer.Exit(code=1) from e

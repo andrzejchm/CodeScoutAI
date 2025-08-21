@@ -1,15 +1,19 @@
 """CLI commands for managing the code index."""
 
 import json
+import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
+from dotenv import load_dotenv
+from typer.testing import CliRunner
 
+from cli.cli_options import code_paths_option, db_path_option, file_extensions_option, print_file_paths_option
+from cli.cli_utils import echo_info, echo_warning, handle_cli_exception
 from core.code_index.code_index_config import CodeIndexConfig
 from core.code_index.code_index_manager import CodeIndexManager
 from core.code_index.models import CodeIndexQuery
-from src.cli.cli_utils import echo_info, echo_warning, handle_cli_exception
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -24,8 +28,10 @@ def _get_default_db_path() -> str:
 
 @app.command("build")
 def build_index(
-    repo_path: str = typer.Option(".", "--repo-path", help="Path to the repository root"),
-    db_path: Optional[str] = typer.Option(None, "--db-path", help="Path to the code index database file"),
+    code_paths: List[str] = code_paths_option(),  # noqa B008
+    db_path: Optional[str] = db_path_option(),
+    file_extensions: List[str] = file_extensions_option(),  # noqa B008
+    print_file_paths: bool = print_file_paths_option(),
 ) -> None:
     """Build code index for the repository."""
     try:
@@ -34,21 +40,29 @@ def build_index(
         # Ensure .codescout directory exists
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        config = CodeIndexConfig(db_path=db_path)
+        config = CodeIndexConfig(
+            db_path=db_path,
+            file_extensions=file_extensions,
+        )
         manager = CodeIndexManager(config)
 
         echo_info("Building code index...")
-        echo_info(f"Repository: {repo_path}")
+        echo_info(f"Code paths: {', '.join(code_paths)}")
         echo_info(f"Database: {db_path}")
+        if file_extensions:
+            echo_info(f"File extensions: {file_extensions}")
 
-        result = manager.build_index(repo_path)
+        result = manager.build_index(
+            code_paths=code_paths,
+            print_file_paths=print_file_paths,
+        )
 
         if result.success:
             echo_info(f"✓ Indexed {result.symbols_indexed} symbols from {result.files_processed} files")
             if result.errors:
                 echo_warning(f"⚠ {len(result.errors)} files had parsing errors")
         else:
-            echo_warning(f"✗ Failed to build index: {result.message}")
+            echo_warning(f"✗ Failed to build index: {result}")
 
     except Exception as e:
         handle_cli_exception(e, message="Error building code index")
@@ -57,7 +71,7 @@ def build_index(
 @app.command("update")
 def update_file(
     file_path: str = typer.Argument(..., help="Path to the file to update"),
-    db_path: Optional[str] = typer.Option(None, "--db-path", help="Path to the code index database file"),
+    db_path: Optional[str] = db_path_option(),
 ) -> None:
     """Update code index for a specific file."""
     try:
@@ -87,8 +101,10 @@ def update_file(
 
 @app.command("rebuild")
 def rebuild_index(
-    repo_path: str = typer.Option(".", "--repo-path", help="Path to the repository root"),
-    db_path: Optional[str] = typer.Option(None, "--db-path", help="Path to the code index database file"),
+    code_paths: List[str] = code_paths_option(),  # noqa B008
+    db_path: Optional[str] = db_path_option(),
+    file_extensions: Optional[List[str]] = file_extensions_option(),  # noqa B008
+    print_file_paths: bool = print_file_paths_option(),
 ) -> None:
     """Rebuild the entire code index from scratch."""
     try:
@@ -97,14 +113,22 @@ def rebuild_index(
         # Ensure .codescout directory exists
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        config = CodeIndexConfig(db_path=db_path)
+        config = CodeIndexConfig(
+            db_path=db_path,
+            file_extensions=file_extensions,
+        )
         manager = CodeIndexManager(config)
 
         echo_info("Rebuilding code index...")
-        echo_info(f"Repository: {repo_path}")
+        echo_info(f"Code paths: {', '.join(code_paths)}")
         echo_info(f"Database: {db_path}")
+        if file_extensions:
+            echo_info(f"File extensions: {file_extensions}")
 
-        result = manager.rebuild_index(repo_path)
+        result = manager.rebuild_index(
+            code_paths=code_paths,
+            print_file_paths=print_file_paths,
+        )
 
         if result.success:
             echo_info(f"✓ Rebuilt index with {result.symbols_indexed} symbols from {result.files_processed} files")
@@ -150,7 +174,7 @@ def search_symbols(
                     "symbol_type": symbol.symbol_type,
                     "language": symbol.language,
                     "file_path": symbol.file_path,
-                    "line": symbol.line_number,
+                    "line": symbol.start_line_number,
                     "signature": symbol.signature,
                     "docstring": symbol.docstring,
                     "score": getattr(symbol, "score", 0),
@@ -166,7 +190,7 @@ def search_symbols(
 
             echo_info(f"Found {len(results)} symbols:")
             for symbol in results:
-                echo_info(f"  {symbol.symbol_type}: {symbol.name} ({symbol.file_path}:{symbol.line_number})")
+                echo_info(f"  {symbol.symbol_type}: {symbol.name} ({symbol.file_path}:{symbol.start_line_number})")
                 if symbol.signature:
                     echo_info(f"    Signature: {symbol.signature}")
                 score = getattr(symbol, "score", None)
@@ -179,7 +203,7 @@ def search_symbols(
 
 @app.command("stats")
 def show_stats(
-    db_path: Optional[str] = typer.Option(None, "--db-path", help="Path to the code index database file"),
+    db_path: Optional[str] = db_path_option(),
 ) -> None:
     """Show code index statistics."""
     try:
@@ -221,7 +245,7 @@ def show_stats(
 
 @app.command("types")
 def list_symbol_types(
-    db_path: Optional[str] = typer.Option(None, "--db-path", help="Path to the code index database file"),
+    db_path: Optional[str] = db_path_option(),
     json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
 ) -> None:
     """List available symbol types in the code index."""
@@ -250,3 +274,23 @@ def list_symbol_types(
 
     except Exception as e:
         handle_cli_exception(e, message="Error retrieving symbol types")
+
+
+if __name__ == "__main__":
+    print(f"Current working directory: {os.getcwd()}")
+
+    load_dotenv("../../.codescout.env")
+    runner = CliRunner()
+    from cli import main
+
+    result = runner.invoke(
+        main.app,
+        [
+            "index",
+            "build",
+        ],
+        catch_exceptions=False,
+        color=True,
+    )
+    print(f"Err: {result.stderr}")
+    print(f"stdout: {result.stdout}")

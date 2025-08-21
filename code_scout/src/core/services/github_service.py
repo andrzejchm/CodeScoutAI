@@ -4,6 +4,8 @@ from github import Github, GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+from cli.cli_utils import echo_warning
+
 HTTP_NOT_FOUND = 404
 HTTP_FORBIDDEN = 403
 
@@ -117,7 +119,11 @@ class GitHubService:
             contents = self.repo.get_contents(file_path, ref=ref)
             if isinstance(contents, list):
                 raise ValueError(f"Path '{file_path}' is a directory, not a file.")
-            return contents.decoded_content.decode("utf-8")
+            if contents.encoding:
+                return contents.decoded_content.decode("utf-8")
+            else:
+                echo_warning(f"could not read '{file_path}' contents, is it a directory or a submodule?")
+                return None
         except GithubException as e:
             if e.status == HTTP_NOT_FOUND:
                 return None  # File not found at this ref, which is acceptable for some diff scenarios
@@ -131,4 +137,4 @@ class GitHubService:
                 ) from e
             raise ValueError(f"GitHub API error getting file content: {e.status} - {e.data}") from e
         except Exception as e:
-            raise ValueError(f"An unexpected error occurred while getting file content: {e}") from e
+            raise ValueError(f"An unexpected error occurred while getting file content of {file_path}: {e}") from e

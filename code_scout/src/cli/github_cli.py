@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # Example usage of review-pr command
     result = runner.invoke(
         main.app,
-        ["github", "review-pr", "--pr-number", "258"],
+        ["github", "review-pr", "--pr-number", "257"],
         catch_exceptions=False,
         color=True,
     )

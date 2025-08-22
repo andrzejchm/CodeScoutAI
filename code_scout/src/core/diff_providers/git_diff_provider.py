@@ -7,7 +7,9 @@ from git.exc import GitCommandError
 from cli.cli_utils import echo_debug, echo_warning
 from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
+from core.models.parsed_diff import ParsedDiff
 from core.utils.code_excerpt_extractor import CodeExcerptExtractor
+from core.utils.diff_parser import parse_diff_string
 
 PREVIEW_LENGTH = 200
 
@@ -31,56 +33,60 @@ class GitDiffProvider(DiffProvider):
 
     def get_diff(self) -> List[CodeDiff]:
         repo = git.Repo(path=self.repo_path)
-
-        if self.staged:
-            # Get diff of staged files (index vs HEAD)
-            # repo.index.diff(None) compares the index (staged changes) with the working tree.
-            # To compare staged changes against the last commit (HEAD), use
-            # repo.head.commit.diff(None) or repo.index.diff("HEAD")
-            diff = repo.index.diff("HEAD", create_patch=True)
-        else:
-            # Get diff between source and target commits
-            diff = repo.commit(self.source).diff(self.target, create_patch=True)
+        diff_index = self._get_diff_index(repo)
 
         diff_list = []
-        for diff_item in diff:
-            # Extract diff content - GitPython requires create_patch=True for patch content
-            diff_content = ""
-            if hasattr(diff_item, "diff") and diff_item.diff:
-                if isinstance(diff_item.diff, bytes):
-                    diff_content = diff_item.diff.decode("utf-8", errors="replace")
-                else:
-                    diff_content = str(diff_item.diff)
+        for diff_item in diff_index:
+            diff_content = self._get_diff_content(diff_item)
+            parsed_diff = parse_diff_string(diff_content, filename=self.target or self.source)
 
-            # Determine file path (prefer b_path for new files, a_path for deleted files)
-            file_path = diff_item.b_path or diff_item.a_path or ""
-            old_file_path = diff_item.a_path if diff_item.renamed_file else None
-
-            # Determine change type based on GitPython's diff item properties
-            change_type = "modified"
-            if diff_item.new_file:
-                change_type = "added"
-            elif diff_item.deleted_file:
-                change_type = "deleted"
-            elif diff_item.renamed_file:
-                change_type = "renamed"
-            elif diff_item.change_type:
-                change_type = diff_item.change_type
-
-            # Get current file content for excerpt extraction
-            current_file_content = self._get_file_content(repo, file_path, change_type)
-
-            diff_list.append(
-                CodeDiff(
-                    diff=diff_content,
-                    file_path=file_path,
-                    old_file_path=old_file_path,
-                    change_type=change_type,
-                    current_file_content=current_file_content,
+            if parsed_diff:
+                change_type = self._map_parsed_diff_to_change_type(parsed_diff)
+                file_path = parsed_diff.target_file.split("\t")[0].replace("b/", "", 1)
+                old_file_path = (
+                    parsed_diff.source_file.split("\t")[0].replace("a/", "", 1) if parsed_diff.is_renamed_file else None
                 )
-            )
+
+                current_file_content = self._get_file_content(repo, file_path, change_type)
+
+                diff_list.append(
+                    CodeDiff(
+                        diff=diff_content,
+                        hunks=parsed_diff.hunks,
+                        parsed_diff=parsed_diff,
+                        file_path=file_path,
+                        old_file_path=old_file_path,
+                        change_type=change_type,
+                        current_file_content=current_file_content,
+                    )
+                )
 
         return diff_list
+
+    def _get_diff_index(self, repo: git.Repo):
+        if self.staged:
+            return repo.index.diff("HEAD", create_patch=True)
+        return repo.commit(self.source).diff(self.target, create_patch=True)
+
+    def _get_diff_content(self, diff_item) -> str:
+        if hasattr(diff_item, "diff") and diff_item.diff:
+            return (
+                diff_item.diff.decode("utf-8", errors="replace")
+                if isinstance(diff_item.diff, bytes)
+                else str(diff_item.diff)
+            )
+        return ""
+
+    def _map_parsed_diff_to_change_type(self, parsed_diff: ParsedDiff) -> str:
+        if parsed_diff.is_added_file:
+            return "added"
+        if parsed_diff.is_removed_file:
+            return "deleted"
+        if parsed_diff.is_renamed_file:
+            return "renamed"
+        if parsed_diff.is_modified_file:
+            return "modified"
+        return "unknown"
 
     def _get_file_content(self, repo: git.Repo, file_path: str, change_type: str) -> Optional[str]:
         """

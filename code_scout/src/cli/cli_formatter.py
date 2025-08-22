@@ -1,7 +1,7 @@
 import typer
 
 from core.interfaces.review_formatter import ReviewFormatter
-from core.models.review_finding import Severity
+from core.models.review_finding import ReviewFinding, Severity
 from core.models.review_result import ReviewResult
 
 
@@ -138,7 +138,7 @@ class CliFormatter(ReviewFormatter):
         output.append("\n==========================================\n\n")
         return "".join(output)
 
-    def _format_code_excerpt(self, finding) -> str:
+    def _format_code_excerpt(self, finding: ReviewFinding) -> str:
         """
         Format code excerpt with line numbers and highlighting.
         """
@@ -159,7 +159,7 @@ class CliFormatter(ReviewFormatter):
         current_line = finding.excerpt_start_line
         for line in lines:
             # Determine if this is the target line
-            is_target_line = (finding.start_line_number and current_line == finding.start_line_number) or (
+            is_target_line = (finding.line_number and current_line == finding.line_number) or (
                 finding.line_range and finding.line_range[0] <= current_line <= finding.line_range[1]
             )
 

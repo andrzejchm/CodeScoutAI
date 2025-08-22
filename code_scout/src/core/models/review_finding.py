@@ -20,6 +20,7 @@ class Category(str, Enum):
     BEST_PRACTICES = "best_practices"
     MAINTAINABILITY = "maintainability"
     READABILITY = "readability"
+    OTHER = "other"
 
 
 class ReviewFinding(BaseModel):

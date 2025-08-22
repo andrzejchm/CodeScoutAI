@@ -8,6 +8,7 @@ from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
+from core.utils.diff_parser import parse_diff_string
 
 
 class CustomFakeChatModel(FakeListChatModel):
@@ -60,10 +61,11 @@ def mock_llm_no_tools():
 
 
 @pytest.fixture
-def sample_code_diff():
+def sample_code_diff() -> CodeDiff:
     """Provides a sample CodeDiff object with full file content."""
     file_path = "tests/temp_test_file.py"
-    current_file_content = """def calculate_sum(a, b):
+    current_file_content = """
+    def calculate_sum(a, b):
     return a + b
 
 def calculate_product(a, b):
@@ -78,10 +80,20 @@ def calculate_product(a, b):
 +def calculate_product(a, b):
 +    return a * b
 """
+    parsed_diff = parse_diff_string(
+        diff_string=f"""
+    diff --git a/{file_path} b{file_path}
+    {diff_content}
+    """,
+        filename=file_path,
+    )
     return CodeDiff(
         diff=diff_content,
+        hunks=parsed_diff.hunks if parsed_diff else [],
+        parsed_diff=parsed_diff,
         file_path=file_path,
-        change_type="added",
+        old_file_path=file_path,
+        change_type="modified",
         current_file_content=current_file_content,
     )
 

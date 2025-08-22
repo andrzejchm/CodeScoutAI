@@ -16,8 +16,8 @@ from core.utils.code_excerpt_extractor import CodeExcerptExtractor
 
 class BasicReviewChain(ReviewChain):
     """
-    A basic review chain that sends code diffs to the LLM for review
-    and attempts to parse findings from the LLM's response.
+    A basic review chain that sends structured code diffs to the LLM for review
+    and parses findings from the LLM's response.
     """
 
     def __init__(
@@ -46,117 +46,84 @@ class BasicReviewChain(ReviewChain):
         return findings
 
     def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel) -> str:
-        """Invoke the LLM with the code diffs, always using an agent executor."""
-        all_diff_content = "\n\n".join([f"File: {d.file_path}\nDiff:\n{d.diff}" for d in diffs])
+        """Invoke the LLM with the structured code diffs using an agent executor."""
 
-        # Create tools from configured LangChain tools (can be empty)
+        tools = self._get_tools(diffs)
+        system_message_content = self._get_system_message()
+
+        agent = create_react_agent(model=llm, tools=tools)
+
+        echo_debug(f"Executing agent with tools: {[tool.name for tool in tools]}")
+
+        diff_contents = f"{'\n'.join([d.llm_repr for d in diffs])}"
+        echo_debug(f"system message:\n{system_message_content}")
+        echo_debug("======================================")
+        echo_debug(f"\ndiff message:\n{diff_contents}")
+        echo_debug("======================================")
+        result = agent.invoke(
+            {
+                "messages": [
+                    SystemMessage(content=system_message_content),
+                    HumanMessage(content=diff_contents),
+                ],
+            }
+        )
+
+        last_response = self._extract_content_from_result(result)
+        echo_debug(f"Agent response: {last_response}")
+        return last_response
+
+    def _get_tools(self, diffs: List[CodeDiff]) -> list:
         tools = []
         for tool_instance in self.config.langchain_tools:
             tool = tool_instance.get_tool(diffs)
-            if tool is not None:
+            if tool:
                 tools.append(tool)
-                if tool.args_schema:
-                    if isinstance(tool.args_schema, dict):
-                        echo_debug(f"using tool:\n{json.dumps(tool.args_schema, indent=2)}")
-                    else:
-                        echo_debug(f"using tool: {tool.name} (args_schema type: {type(tool.args_schema)})")
-                else:
-                    echo_debug(f"using tool: {tool.name} (no args_schema)")
+        return tools
 
-        # Create enhanced system message with tool information
-        system_message_content = self._get_system_message()
-
-        # Create and execute agent
-        agent = create_react_agent(
-            model=llm,
-            tools=tools,
-        )
-
-        echo_debug(
-            f"Executing agent with tools: {[tool.name for tool in tools]}",
-        )
-
-        result = agent.invoke(
-            input={
-                "messages": [
-                    SystemMessage(content=system_message_content),
-                    HumanMessage(
-                        content=f"Please review the following code diffs:\n\n{all_diff_content}",
-                    ),
-                ],
-            },
-        )
-
-        echo_debug(
-            f"Agent response: {result}",
-        )
-
+    def _extract_content_from_result(self, result: dict) -> str:
         result_messages = result.get("messages")
-        if (
-            result_messages
-            and isinstance(result_messages, List)
-            and result_messages
-            and isinstance(result_messages[-1], BaseMessage)
-        ):
-            return str(result_messages[-1].content)
+        if isinstance(result_messages, list) and result_messages:
+            last_message = result_messages[-1]
+            if isinstance(last_message, BaseMessage):
+                return str(last_message.content)
         return ""
 
     def _get_system_message(self) -> str:
-        """Get the system message for the LLM."""
+        """Get the system message for the LLM, updated for structured diffs."""
         severity_values = ", ".join([s.value for s in Severity])
         category_values = ", ".join([c.value for c in Category])
 
         return f"""
-You are an expert code reviewer with deep expertise across multiple
- programming languages, frameworks, and software engineering best practices.
-Your role is to provide high-quality, actionable code review feedback that helps
-developers write better, more secure, and more maintainable code.
+You are an expert code reviewer. Your role is to provide high-quality, actionable feedback.
+Analyze the provided code changes, which are given as a JSON array of file diffs.
+Each file diff contains a list of 'hunks', representing a block of changes.
+For each hunk, you will see the line numbers and the content of the changes.
 
 CRITICAL GUIDELINES:
-- QUALITY OVER QUANTITY: Only report findings you are confident about.
- Avoid speculation or uncertain observations.
-- FOCUS ON IMPACT: Prioritize findings that have real security, performance,
- or maintainability implications.
-- BE SPECIFIC: Provide clear, actionable feedback with concrete suggestions
- when possible.
-- AVOID NOISE: Do not report minor style preferences, subjective opinions,
- or issues that are already handled by automated tools.
-- CONTEXT MATTERS: Consider the broader codebase context when making recommendations.
-
-ANALYSIS SCOPE:
-Analyze the provided code diffs for:
-• Security vulnerabilities (injection attacks, authentication flaws, data exposure)
-• Logic bugs and error handling issues
-• Performance bottlenecks and inefficient algorithms
-• Architecture and design pattern violations
-• Maintainability and readability concerns
-• Best practice violations with significant impact
+- Your response MUST be ONLY a valid JSON array of finding objects.
+- Each finding must correlate to a specific hunk.
+- For `line_number`, use the `target_line_no` of the first relevant line in the hunk.
 
 OUTPUT FORMAT:
-Your response must be ONLY a valid JSON array. No explanations, no conversational text.
 Each finding must be a JSON object with these fields:
-• severity: One of [{severity_values}]
-• category: One of [{category_values}]
-• file_path: The file path from the diff
-• line_number: Specific line number (optional but preferred)
-• message: Clear, concise description of the issue
-• suggestion: Actionable recommendation to fix the issue (optional)
-
-SEVERITY GUIDELINES:
-• critical: Security vulnerabilities, data corruption risks, system crashes
-• major: Significant bugs, performance issues, architectural problems
-• minor: Code quality issues with moderate impact
-• suggestion: Improvements that enhance code quality but aren't urgent
+- severity: One of [{severity_values}]
+- category: One of [{category_values}]
+- file_path: The file path from the diff
+- line_number: The starting line number of the issue in the new file.
+- message: Clear, concise description of the issue.
+- suggestion: Actionable recommendation to fix the issue (optional).
 
 Example response:
 ```json
 [
-  {{"severity": "major",
+  {{
+    "severity": "major",
     "category": "security",
     "file_path": "src/auth.py",
     "line_number": 42,
-    "message": "SQL query constructed with string concatenation allows injection attacks",
-    "suggestion": "Use parameterized queries or an ORM to prevent SQL injection"
+    "message": "SQL query constructed with string concatenation allows injection attacks.",
+    "suggestion": "Use parameterized queries or an ORM to prevent SQL injection."
   }}
 ]
 ```
@@ -165,49 +132,36 @@ Example response:
     def _process_llm_response(self, content: str, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Process the LLM response and extract findings."""
         findings = []
-        json_str = content.strip()
-
         try:
-            json_str = self._extract_json_from_response(json_str)
+            json_str = self._extract_json_from_response(content)
             parsed_findings_data = json.loads(json_str)
 
             if isinstance(parsed_findings_data, list):
                 findings = self._create_findings_from_data(parsed_findings_data, file_path_to_diff)
             else:
-                findings.append(
-                    self._create_error_finding(
-                        f"LLM response was not a JSON array. Raw response: {content}",
-                        Severity.CRITICAL,
-                    )
-                )
-        except json.JSONDecodeError as e:
+                findings.append(self._create_error_finding("LLM response was not a JSON array.", Severity.CRITICAL))
+        except json.JSONDecodeError:
             findings.append(
-                self._create_error_finding(
-                    f"LLM response could not be parsed as JSON: {e}. Raw response: {content}",
-                    Severity.CRITICAL,
-                )
+                self._create_error_finding("LLM response could not be parsed as JSON.", Severity.CRITICAL, content)
             )
         except Exception as e:
             findings.append(
-                self._create_error_finding(
-                    f"An unexpected error occurred during LLM response processing: {e}.Raw response: {content}",
-                    Severity.CRITICAL,
-                )
+                self._create_error_finding(f"An unexpected error occurred: {e}", Severity.CRITICAL, content)
             )
 
         return findings
 
-    def _extract_json_from_response(self, json_str: str) -> str:
-        """Extract JSON from LLM response, handling various formats."""
-        json_match = re.search(r"```json\s*([\s\S]*?)\s*```", json_str)
-        if json_match:
-            return json_match.group(1).strip()
-        # If it doesn't have the ```json block, try to find the first [ and last ]
-        json_start = json_str.find("[")
-        json_end = json_str.rfind("]")
-        if json_start != -1 and json_end != -1 and json_end > json_start:
-            return json_str[json_start : json_end + 1]
-        return json_str
+    def _extract_json_from_response(self, text: str) -> str:
+        """Extracts a JSON object or array from a string, stripping markdown code blocks."""
+        match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+        if match:
+            return match.group(1).strip()
+        # Fallback for responses that might not be in a markdown block
+        json_start = text.find("[")
+        json_end = text.rfind("]")
+        if json_start != -1 and json_end != -1:
+            return text[json_start : json_end + 1]
+        return text
 
     def _create_findings_from_data(self, findings_data: list, file_path_to_diff: dict) -> List[ReviewFinding]:
         """Create ReviewFinding objects from parsed JSON data."""
@@ -218,10 +172,7 @@ Example response:
                 findings.append(finding)
             except Exception as e:
                 findings.append(
-                    self._create_error_finding(
-                        f"Failed to parse individual finding from LLM: {e}. Raw data: {finding_data}",
-                        Severity.CRITICAL,
-                    )
+                    self._create_error_finding(f"Failed to parse a finding: {e}", Severity.CRITICAL, str(finding_data))
                 )
         return findings
 
@@ -230,10 +181,7 @@ Example response:
         file_path = finding_data.get("file_path", "N/A")
         line_number = finding_data.get("line_number")
 
-        # Extract code excerpt if available
-        code_excerpt, excerpt_start_line, excerpt_end_line = self._extract_code_excerpt(
-            file_path, line_number, file_path_to_diff
-        )
+        code_excerpt, start_line, end_line = self._extract_code_excerpt(file_path, line_number, file_path_to_diff)
 
         return ReviewFinding(
             severity=Severity(finding_data.get("severity", "suggestion")),
@@ -244,12 +192,11 @@ Example response:
             suggestion=finding_data.get("suggestion"),
             tool_name=self.get_chain_name(),
             code_excerpt=code_excerpt,
-            excerpt_start_line=excerpt_start_line,
-            excerpt_end_line=excerpt_end_line,
+            excerpt_start_line=start_line,
+            excerpt_end_line=end_line,
         )
 
     def _extract_code_excerpt(self, file_path: str, line_number: Optional[int], file_path_to_diff: dict):
-        """Extract code excerpt for a finding."""
         if not (file_path in file_path_to_diff and self.config.show_code_excerpts and line_number):
             return None, None, None
 
@@ -268,13 +215,14 @@ Example response:
             return excerpt.content, excerpt.start_line, excerpt.end_line
         return None, None, None
 
-    def _create_error_finding(self, message: str, severity: Severity) -> ReviewFinding:
+    def _create_error_finding(self, message: str, severity: Severity, raw_content: str = "") -> ReviewFinding:
         """Create an error finding."""
+        full_message = f"{message} Raw content: {raw_content}" if raw_content else message
         return ReviewFinding(
             file_path="N/A",
             line_number=0,
             severity=severity,
-            category=Category.BUG if severity == Severity.CRITICAL else Category.BEST_PRACTICES,
-            message=message,
+            category=Category.BUG,
+            message=full_message,
             tool_name=self.get_chain_name(),
         )

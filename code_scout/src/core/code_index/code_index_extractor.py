@@ -36,7 +36,7 @@ class CodeIndexExtractor:
             ".dart": "dart",
         }
 
-    def extract_symbols(self, file_path: str, content: str) -> List[CodeSymbol]:
+    def extract_symbols(self, file_path: str, content: str) -> List[CodeSymbol]:  # noqa: PLR0912, PLR0915
         """
         Extract symbols from source code content using Tree-sitter queries.
         """

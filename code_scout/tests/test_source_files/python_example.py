@@ -50,7 +50,7 @@ def simple_function(arg1, arg2):
     return arg1 + arg2
 
 
-lambda_function = lambda x: x * x
+lambda_function = lambda x: x * x  # noqa: E731
 
 if __name__ == "__main__":
     instance = DerivedClass("test", 5)

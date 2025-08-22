@@ -1,8 +1,10 @@
-from typing import List, Optional
+from typing import List
 
 from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
+from core.models.parsed_diff import ParsedDiff
 from core.services.github_service import GitHubService
+from core.utils.diff_parser import parse_github_file
 
 
 class GitHubDiffProvider(DiffProvider):
@@ -32,31 +34,36 @@ class GitHubDiffProvider(DiffProvider):
 
         code_diffs: List[CodeDiff] = []
         for file_obj in self.github_service.get_pull_request_files(pull):
-            change_type = self._map_github_status_to_change_type(file_obj.status)
-            old_file_path: Optional[str] = None
+            parsed_diff = parse_github_file(file_obj)
 
-            if file_obj.status == "renamed":
-                old_file_path = file_obj.previous_filename
+            if parsed_diff:
+                file_path = parsed_diff.target_file
+                old_file_path = parsed_diff.source_file if parsed_diff.is_renamed_file else None
+                change_type = self._map_parsed_diff_to_change_type(parsed_diff)
 
-            # Fetch current file content for excerpt extraction
-            current_file_content = self.github_service.get_file_content(file_obj.filename, pull.head.sha)
+                # Fetch current file content for excerpt extraction
+                current_file_content = self.github_service.get_file_content(file_path, pull.head.sha)
 
-            code_diffs.append(
-                CodeDiff(
-                    diff=file_obj.patch or "",  # patch contains the unified diff
-                    file_path=file_obj.filename,
-                    old_file_path=old_file_path,
-                    change_type=change_type,
-                    current_file_content=current_file_content,
+                code_diffs.append(
+                    CodeDiff(
+                        diff=file_obj.patch or "",
+                        hunks=parsed_diff.hunks,
+                        parsed_diff=parsed_diff,
+                        file_path=file_path,
+                        old_file_path=old_file_path,
+                        change_type=change_type,
+                        current_file_content=current_file_content,
+                    )
                 )
-            )
         return code_diffs
 
-    def _map_github_status_to_change_type(self, status: str) -> str:
-        status_map = {
-            "added": "added",
-            "removed": "deleted",
-            "modified": "modified",
-            "renamed": "renamed",
-        }
-        return status_map.get(status, "unknown")
+    def _map_parsed_diff_to_change_type(self, parsed_diff: ParsedDiff) -> str:
+        if parsed_diff.is_added_file:
+            return "added"
+        if parsed_diff.is_removed_file:
+            return "deleted"
+        if parsed_diff.is_modified_file:
+            return "modified"
+        if parsed_diff.is_renamed_file:
+            return "renamed"
+        return "unknown"

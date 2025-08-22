@@ -1,0 +1,17 @@
+[
+    {"name": "Animal", "symbol_type": "class", "start_line_number": 3, "end_line_number": 11},
+    {"name": "constructor", "symbol_type": "method", "start_line_number": 4, "end_line_number": 6},
+    {"name": "speak", "symbol_type": "method", "start_line_number": 8, "end_line_number": 10},
+    {"name": "Dog", "symbol_type": "class", "start_line_number": 13, "end_line_number": 37},
+    {"name": "constructor", "symbol_type": "method", "start_line_number": 16, "end_line_number": 19},
+    {"name": "bark", "symbol_type": "method", "start_line_number": 21, "end_line_number": 23},
+    {"name": "info", "symbol_type": "method", "start_line_number": 25, "end_line_number": 27},
+    {"name": "newBreed", "symbol_type": "method", "start_line_number": 29, "end_line_number": 31},
+    {"name": "fetchData", "symbol_type": "method", "start_line_number": 33, "end_line_number": 36},
+    {"name": "regularFunction", "symbol_type": "function", "start_line_number": 39, "end_line_number": 45},
+    {"name": "innerFunction", "symbol_type": "function", "start_line_number": 41, "end_line_number": 43},
+    {"name": "arrowFunction", "symbol_type": "function", "start_line_number": 47, "end_line_number": 50},
+    {"name": "Utility", "symbol_type": "class", "start_line_number": 52, "end_line_number": 56},
+    {"name": "helper", "symbol_type": "method", "start_line_number": 53, "end_line_number": 55},
+    {"name": "exportedFunction", "symbol_type": "function", "start_line_number": 58, "end_line_number": 60}
+]

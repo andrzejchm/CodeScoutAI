@@ -39,7 +39,7 @@ def test_extract_symbols_from_files(file_path, content, expected_symbols):
         [(s.name, s.symbol_type, s.start_line_number, s.end_line_number) for s in symbols], key=lambda x: (x[2], x[0])
     )
     expected_simplified = sorted(
-        list(expected_symbols),  # Convert set to list and sort directly
+        expected_symbols,  # Convert set to list and sort directly
         key=lambda x: (x[2], x[0]),
     )
 

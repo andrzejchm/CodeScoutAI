@@ -1,0 +1,6 @@
+[
+    {"name": "Status", "symbol_type": "enum", "start_line_number": 5, "end_line_number": 9},
+    {"name": "Shape", "symbol_type": "class", "start_line_number": 11, "end_line_number": 14},
+    {"name": "Logger", "symbol_type": "mixin", "start_line_number": 16, "end_line_number": 20},
+    {"name": "Circle", "symbol_type": "class", "start_line_number": 22, "end_line_number": 46}
+]

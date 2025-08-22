@@ -1,0 +1,13 @@
+[
+    {"name": "BaseClass", "symbol_type": "class", "start_line_number": 6, "end_line_number": 13},
+    {"name": "__init__", "symbol_type": "function", "start_line_number": 9, "end_line_number": 10},
+    {"name": "get_name", "symbol_type": "function", "start_line_number": 12, "end_line_number": 13},
+    {"name": "DerivedClass", "symbol_type": "class", "start_line_number": 16, "end_line_number": 40},
+    {"name": "__init__", "symbol_type": "function", "start_line_number": 21, "end_line_number": 23},
+    {"name": "create_from_value", "symbol_type": "function", "start_line_number": 26, "end_line_number": 27},
+    {"name": "static_method", "symbol_type": "function", "start_line_number": 30, "end_line_number": 31},
+    {"name": "calculate_something", "symbol_type": "function", "start_line_number": 33, "end_line_number": 40},
+    {"name": "nested_function", "symbol_type": "function", "start_line_number": 37, "end_line_number": 38},
+    {"name": "async_function", "symbol_type": "function", "start_line_number": 43, "end_line_number": 45},
+    {"name": "simple_function", "symbol_type": "function", "start_line_number": 48, "end_line_number": 50}
+]

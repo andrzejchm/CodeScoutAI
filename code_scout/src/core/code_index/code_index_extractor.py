@@ -9,6 +9,17 @@ from core.code_index.models import CodeSymbol
 from core.code_index.queries import QUERIES
 
 
+def _print_tree(node, indent=""):
+    """Pretty-print a Node and its named children."""
+    # source should be bytes (as used by tree_sitter)
+    start = node.start_point  # (row, col)
+    end = node.end_point
+
+    print(f"{indent}{node.type} [{start.row}:{start.column}-{end.row}:{end.column}] - {node.text}")
+    for child in node.named_children:
+        _print_tree(child, indent + "  ")
+
+
 class CodeIndexExtractor:
     """
     Extracts code symbols from source files using Tree-sitter parsers and language-specific queries.
@@ -41,6 +52,10 @@ class CodeIndexExtractor:
 
             source_bytes = content.encode("utf-8")
             tree = parser.parse(source_bytes)
+            # print(
+            #     f"\n--- S-expression for {file_path} \n--------------\n\n----------------------------------"
+            # )
+            _print_tree(tree.root_node)
 
             query_src = QUERIES[language_name]
             query = Query(language, query_src)
@@ -53,28 +68,70 @@ class CodeIndexExtractor:
             file_hash = hashlib.sha256(source_bytes).hexdigest()
             symbols: List[CodeSymbol] = []
 
+            # Minimal span wrapper to combine .start/.end nodes into one range
+            class _Span:
+                __slots__ = ("end_byte", "end_point", "start_byte", "start_point", "text")
+
+                def __init__(self, a, b):
+                    self.start_point = a.start_point
+                    self.end_point = b.end_point
+                    self.start_byte = a.start_byte
+                    self.end_byte = b.end_byte
+                    self.text = None  # ensures we slice from source_bytes
+
             for match in matches:
-                captures = match[1]
+                captures = match[1]  # dict: {capture_name: [nodes...]}
 
                 definition_node = None
                 name_node = None
+                start_node = None
+                end_node = None
                 symbol_type = ""
 
                 for capture_name, nodes in captures.items():
                     if not nodes:
                         continue
                     node = nodes[0]
-                    if ".definition" in capture_name:
+
+                    if capture_name.endswith(".definition"):
                         definition_node = node
                         symbol_type = capture_name.split(".")[0]
-                    elif ".name" in capture_name:
+                    elif capture_name.endswith(".name"):
                         name_node = node
+                        symbol_type = capture_name.split(".")[0]
+                    elif capture_name.endswith(".start"):
+                        start_node = node
+                        symbol_type = capture_name.split(".")[0]
+                    elif capture_name.endswith(".end"):
+                        end_node = node
+                        symbol_type = capture_name.split(".")[0]
+
+                # If we only have start/end, synthesize a full span
+                if definition_node is None and start_node is not None and end_node is not None:
+                    definition_node = _Span(start_node, end_node)
+
+                # If name not captured explicitly, try the 'name' field on the start node
+                if name_node is None and start_node is not None:
+                    maybe_name = start_node.child_by_field_name("name")
+                    if maybe_name is not None:
+                        name_node = maybe_name
 
                 if not definition_node or not name_node:
                     continue
 
-                name = name_node.text.decode("utf-8") if name_node.text else ""
-                source_code = definition_node.text.decode("utf-8") if definition_node.text else ""
+                # Decode name text (fallback to slicing if node has no .text)
+                name_bytes = getattr(name_node, "text", None)
+                if name_bytes is not None:
+                    name = name_bytes.decode("utf-8")
+                else:
+                    name = source_bytes[name_node.start_byte : name_node.end_byte].decode("utf-8")
+
+                # Extract source for the definition span
+                def_bytes = getattr(definition_node, "text", None)
+                if def_bytes is not None:
+                    source_code = def_bytes.decode("utf-8")
+                else:
+                    source_code = source_bytes[definition_node.start_byte : definition_node.end_byte].decode("utf-8")
 
                 symbol = CodeSymbol(
                     name=name,

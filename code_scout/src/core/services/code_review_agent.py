@@ -5,16 +5,14 @@ from langchain_core.language_models import BaseLanguageModel
 
 from core.interfaces.diff_provider import DiffProvider
 from core.interfaces.llm_provider import LLMProvider
-from core.interfaces.review_chain import ReviewChain
 from core.interfaces.review_formatter import ReviewFormatter
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
-from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
 from core.tools.search_code_index_tool import SearchCodeIndexTool
-from src.cli.cli_utils import echo_info, show_spinner
+from src.cli.cli_utils import echo_error, echo_info, show_spinner
 from src.cli.code_scout_context import CodeScoutContext
 
 
@@ -49,9 +47,7 @@ class CodeReviewAgent:
 
         self.llm: BaseLanguageModel = self.llm_provider.get_llm(self.cli_context)
 
-        self.review_chains: List[ReviewChain] = [BasicReviewChain(config=self.config)]
-
-    def review_code(self) -> ReviewResult:
+    def review_code(self) -> Optional[ReviewResult]:
         """
         Executes the code review process.
 
@@ -65,38 +61,35 @@ class CodeReviewAgent:
 
         if not diffs:
             echo_info("No code differences found to review.")
-            return ReviewResult.aggregate([])
+            return ReviewResult.aggregate([], usage_metadata=None)
 
         echo_info(f"\nTotal changes: {len(diffs)} files modified.")
 
-        all_findings = self._execute_review_chains(diffs)
+        result = self._execute_review_chain(diffs)
 
         end_time = time.time()
         duration = end_time - start_time
-
-        result = ReviewResult.aggregate(all_findings)
-        result.review_duration = duration
-        result.total_files_reviewed = len({d.file_path for d in diffs})
-
-        self._output_results(result)
+        if result:
+            result.review_duration = duration
+            result.total_files_reviewed = len({d.file_path for d in diffs})
+            self._output_results(result)
 
         return result
 
-    def _execute_review_chains(
+    def _execute_review_chain(
         self,
         diffs: List[CodeDiff],
-    ) -> List[ReviewFinding]:
+    ) -> Optional[ReviewResult]:
         """Execute all enabled review chains."""
-        all_findings = []
-        for chain in self.review_chains:
-            try:
-                with show_spinner(label=f"Running {chain.get_chain_name()}..."):
-                    findings = chain.review(diffs, self.llm)
-                all_findings.extend(findings)
+        chain = BasicReviewChain(config=self.config)
+        try:
+            with show_spinner(label=f"Running {chain.get_chain_name()}..."):
+                review_result = chain.review(diffs, self.llm)
                 echo_info(f"Completed review: {chain.get_chain_name()}")
-            except Exception as e:
-                echo_info(f"Warning: Chain {chain.get_chain_name()} failed: {e}")
-        return all_findings
+                return review_result
+
+        except Exception as e:
+            echo_error(f"Warning: Chain {chain.get_chain_name()} failed: {e}")
 
     def _output_results(self, result: ReviewResult):
         """Format and output the review results."""

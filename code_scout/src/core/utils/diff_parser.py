@@ -7,7 +7,9 @@ from core.models.diff_hunk import DiffHunk, DiffLine
 from core.models.parsed_diff import ParsedDiff
 
 
-def parse_github_file(file_obj: Any) -> Optional[ParsedDiff]:
+def parse_github_file(
+    file_obj: Any,
+) -> Optional[ParsedDiff]:
     """
     Parses a GitHub file object from PyGithub into a structured ParsedDiff object.
 
@@ -57,7 +59,7 @@ def parse_diff_string(diff_string: str, filename: str) -> Optional[ParsedDiff]:
         patch_set = PatchSet(StringIO(diff_string))
         patched_file = next(iter(patch_set), None)
 
-        if not patched_file:
+        if patched_file is None:
             return None
 
         hunks = []
@@ -97,9 +99,7 @@ def parse_diff_string(diff_string: str, filename: str) -> Optional[ParsedDiff]:
             is_added_file=patched_file.is_added_file,
             is_removed_file=patched_file.is_removed_file,
             is_modified_file=patched_file.is_modified_file,
-            is_renamed_file=(source_file != target_file)
-            and not patched_file.is_added_file
-            and not patched_file.is_removed_file,
+            is_renamed_file=patched_file.is_rename,
         )
     except UnidiffParseError as e:
         raise DiffParsingError(f"Error while parsing diff for file {filename}.\ncause: {e}") from e

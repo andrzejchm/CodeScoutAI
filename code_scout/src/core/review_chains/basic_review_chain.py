@@ -3,18 +3,18 @@ import re
 from typing import List, Optional
 
 from langchain_core.language_models import BaseLanguageModel
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 
 from cli.cli_utils import echo_debug
-from core.interfaces.review_chain import ReviewChain
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.models.review_finding import Category, ReviewFinding, Severity
+from core.models.review_result import ReviewResult
 from core.utils.code_excerpt_extractor import CodeExcerptExtractor
 
 
-class BasicReviewChain(ReviewChain):
+class BasicReviewChain:
     """
     A basic review chain that sends structured code diffs to the LLM for review
     and parses findings from the LLM's response.
@@ -24,7 +24,7 @@ class BasicReviewChain(ReviewChain):
         self,
         config: ReviewConfig,
     ):
-        super().__init__(config)
+        self.config = config
 
     def get_chain_name(self) -> str:
         return "Basic review"
@@ -33,7 +33,7 @@ class BasicReviewChain(ReviewChain):
         self,
         diffs: List[CodeDiff],
         llm: BaseLanguageModel,
-    ) -> List[ReviewFinding]:
+    ) -> ReviewResult:
         findings: List[ReviewFinding] = []
         file_path_to_diff = {diff.file_path: diff for diff in diffs}
 
@@ -42,10 +42,12 @@ class BasicReviewChain(ReviewChain):
             findings = self._process_llm_response(response, file_path_to_diff)
         else:
             findings.append(self._create_error_finding("LLM returned no content.", Severity.SUGGESTION))
+        return ReviewResult.aggregate(
+            findings=findings,
+            usage_metadata=response.usage_metadata if response else None,
+        )
 
-        return findings
-
-    def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel) -> str:
+    def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel) -> Optional[AIMessage]:
         """Invoke the LLM with the structured code diffs using an agent executor."""
 
         tools = self._get_tools(diffs)
@@ -60,6 +62,7 @@ class BasicReviewChain(ReviewChain):
         echo_debug("======================================")
         echo_debug(f"\ndiff message:\n{diff_contents}")
         echo_debug("======================================")
+        # noinspection PyTypeChecker
         result = agent.invoke(
             {
                 "messages": [
@@ -81,59 +84,23 @@ class BasicReviewChain(ReviewChain):
                 tools.append(tool)
         return tools
 
-    def _extract_content_from_result(self, result: dict) -> str:
+    def _extract_content_from_result(self, result: dict) -> Optional[AIMessage]:
         result_messages = result.get("messages")
         if isinstance(result_messages, list) and result_messages:
             last_message = result_messages[-1]
-            if isinstance(last_message, BaseMessage):
-                return str(last_message.content)
-        return ""
+            if isinstance(last_message, AIMessage):
+                return last_message
+        return None
 
-    def _get_system_message(self) -> str:
-        """Get the system message for the LLM, updated for structured diffs."""
-        severity_values = ", ".join([s.value for s in Severity])
-        category_values = ", ".join([c.value for c in Category])
-
-        return f"""
-You are an expert code reviewer. Your role is to provide high-quality, actionable feedback.
-Analyze the provided code changes, which are given as a JSON array of file diffs.
-Each file diff contains a list of 'hunks', representing a block of changes.
-For each hunk, you will see the line numbers and the content of the changes.
-
-CRITICAL GUIDELINES:
-- Your response MUST be ONLY a valid JSON array of finding objects.
-- Each finding must correlate to a specific hunk.
-- For `line_number`, use the `target_line_no` of the first relevant line in the hunk.
-
-OUTPUT FORMAT:
-Each finding must be a JSON object with these fields:
-- severity: One of [{severity_values}]
-- category: One of [{category_values}]
-- file_path: The file path from the diff
-- line_number: The starting line number of the issue in the new file.
-- message: Clear, concise description of the issue.
-- suggestion: Actionable recommendation to fix the issue (optional).
-
-Example response:
-```json
-[
-  {{
-    "severity": "major",
-    "category": "security",
-    "file_path": "src/auth.py",
-    "line_number": 42,
-    "message": "SQL query constructed with string concatenation allows injection attacks.",
-    "suggestion": "Use parameterized queries or an ORM to prevent SQL injection."
-  }}
-]
-```
-        """
-
-    def _process_llm_response(self, content: str, file_path_to_diff: dict) -> List[ReviewFinding]:
+    def _process_llm_response(
+        self,
+        response_message: AIMessage,
+        file_path_to_diff: dict,
+    ) -> List[ReviewFinding]:
         """Process the LLM response and extract findings."""
         findings = []
         try:
-            json_str = self._extract_json_from_response(content)
+            json_str = self._extract_json_from_response(str(response_message.content))
             parsed_findings_data = json.loads(json_str)
 
             if isinstance(parsed_findings_data, list):
@@ -142,17 +109,21 @@ Example response:
                 findings.append(self._create_error_finding("LLM response was not a JSON array.", Severity.CRITICAL))
         except json.JSONDecodeError:
             findings.append(
-                self._create_error_finding("LLM response could not be parsed as JSON.", Severity.CRITICAL, content)
+                self._create_error_finding(
+                    "LLM response could not be parsed as JSON.", Severity.CRITICAL, f"{response_message}"
+                )
             )
         except Exception as e:
             findings.append(
-                self._create_error_finding(f"An unexpected error occurred: {e}", Severity.CRITICAL, content)
+                self._create_error_finding(
+                    f"An unexpected error occurred: {e}", Severity.CRITICAL, f"{response_message}"
+                )
             )
 
         return findings
 
     def _extract_json_from_response(self, text: str) -> str:
-        """Extracts a JSON object or array from a string, stripping markdown code blocks."""
+        """Extracts a JSON object or array from a string, stripping makrdown code blocks."""
         match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
         if match:
             return match.group(1).strip()
@@ -226,3 +197,43 @@ Example response:
             message=full_message,
             tool_name=self.get_chain_name(),
         )
+
+    def _get_system_message(self) -> str:
+        """Get the system message for the LLM, updated for structured diffs."""
+        severity_values = ", ".join([s.value for s in Severity])
+        category_values = ", ".join([c.value for c in Category])
+
+        return f"""
+You are an expert code reviewer. Your role is to provide high-quality, actionable feedback.
+Analyze the provided code changes, which are given as a JSON array of file diffs.
+Each file diff contains a list of 'hunks', representing a block of changes.
+For each hunk, you will see the line numbers and the content of the changes.
+
+CRITICAL GUIDELINES:
+- Your response MUST be ONLY a valid JSON array of finding objects.
+- Each finding must correlate to a specific hunk.
+- For `line_number`, use the `target_line_no` of the first relevant line in the hunk.
+
+OUTPUT FORMAT:
+Each finding must be a JSON object with these fields:
+- severity: One of [{severity_values}]
+- category: One of [{category_values}]
+- file_path: The file path from the diff
+- line_number: The starting line number of the issue in the new file.
+- message: Clear, concise description of the issue.
+- suggestion: Actionable recommendation to fix the issue (optional).
+
+Example response:
+```json
+[
+  {{
+    "severity": "major",
+    "category": "security",
+    "file_path": "src/auth.py",
+    "line_number": 42,
+    "message": "SQL query constructed with string concatenation allows injection attacks.",
+    "suggestion": "Use parameterized queries or an ORM to prevent SQL injection."
+  }}
+]
+```
+        """

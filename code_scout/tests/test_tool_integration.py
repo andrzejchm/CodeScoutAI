@@ -68,23 +68,24 @@ def sample_code_diff() -> CodeDiff:
     def calculate_sum(a, b):
     return a + b
 
-def calculate_product(a, b):
-    return a * b
+    def calculate_product(a, b):
+        return a * b
 """
-    diff_content = """--- a/tests/temp_test_file.py
-+++ b/tests/temp_test_file.py
+    diff_content = """
+diff --git a/tests/temp_test_file.py +++ b/tests/temp_test_file.py
 @@ -1,3 +1,5 @@
- def calculate_sum(a, b):
-     return a + b
+    def calculate_sum(a, b):
+         return a + b
 
-+def calculate_product(a, b):
-+    return a * b
++   def calculate_product(a, b):
++        return a * b
+diff --git a/code_scout/src/cli/cli_formatter.py b/code_scout/src/cli/cli_formatter_2.py
+similarity index 100%
+rename from code_scout/src/cli/cli_formatter.py
+rename to code_scout/src/cli/cli_formatter_2.py
 """
     parsed_diff = parse_diff_string(
-        diff_string=f"""
-    diff --git a/{file_path} b{file_path}
-    {diff_content}
-    """,
+        diff_string=diff_content,
         filename=file_path,
     )
     return CodeDiff(
@@ -106,8 +107,12 @@ def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
     )
     chain = BasicReviewChain(config)
 
-    findings = chain.review([sample_code_diff], mock_llm)
+    result = chain.review([sample_code_diff], mock_llm)
+    findings = result.findings
 
+    assert result
+    assert findings
+    assert len(findings) == 1
     assert len(findings) == 1
     assert findings[0].file_path == "tests/temp_test_file.py"
     assert findings[0].message == "Consider adding type hints for better readability and maintainability."
@@ -123,15 +128,19 @@ def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
 def test_basic_review_chain_without_tools(mock_llm_no_tools, sample_code_diff):
     """Test BasicReviewChain without LangChain tools enabled (agent still used)."""
     mock_llm_no_tools.responses[0] = mock_llm_no_tools.responses[0].replace(
-        '"severity": "suggestion",', '"severity": "suggestion", "file_path": "tests/temp_test_file.py",'
+        '"severity": "suggestion",',
+        '"severity": "suggestion", "file_path": "tests/temp_test_file.py",',
     )
     config = ReviewConfig(
         langchain_tools=[],  # No tools provided
     )
     chain = BasicReviewChain(config)
 
-    findings = chain.review([sample_code_diff], mock_llm_no_tools)
+    result = chain.review([sample_code_diff], mock_llm_no_tools)
+    findings = result.findings
 
+    assert result
+    assert findings
     assert len(findings) == 1
     assert findings[0].file_path == "tests/temp_test_file.py"
     assert findings[0].message == "No specific issues found in the diff, but consider overall code quality."

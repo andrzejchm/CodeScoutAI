@@ -14,7 +14,17 @@ class CliFormatter(ReviewFormatter):
         """
         Formats the review result into a human-readable string for CLI output.
         """
-        output = [
+        output = []
+        output.extend(self._format_header(result))
+        output.extend(self._format_summary(result))
+        output.extend(self._format_findings(result))
+        output.extend(self._format_usage_metadata(result))
+        output.append("\n==========================================\n\n")
+        return "".join(output)
+
+    def _format_header(self, result: ReviewResult) -> list[str]:
+        """Formats the header section of the review results."""
+        return [
             typer.style(
                 "--- Code Review Results ---",
                 fg=typer.colors.BRIGHT_BLUE,
@@ -28,6 +38,11 @@ class CliFormatter(ReviewFormatter):
             ),
             "\nReview Duration: ",
             f"{typer.style(f'{result.review_duration:.2f}', fg=typer.colors.CYAN)} seconds",
+        ]
+
+    def _format_summary(self, result: ReviewResult) -> list[str]:
+        """Formats the summary section of the review results."""
+        output = [
             typer.style("\n\n--- Summary ---", fg=typer.colors.BRIGHT_BLUE, bold=True),
             typer.style("\nSeverity:", fg=typer.colors.BLUE, bold=True),
         ]
@@ -45,7 +60,11 @@ class CliFormatter(ReviewFormatter):
                 f"\n  - {typer.style(category.value.capitalize(), fg=typer.colors.GREEN)}: "
                 f"{typer.style(str(count), fg=typer.colors.CYAN)}",
             )
+        return output
 
+    def _format_findings(self, result: ReviewResult) -> list[str]:
+        """Formats the findings section of the review results."""
+        output = []
         if result.findings:
             output.append(
                 typer.style(
@@ -55,88 +74,122 @@ class CliFormatter(ReviewFormatter):
                 ),
             )
             for i, finding in enumerate(result.findings):
-                output.append(
-                    typer.style(
-                        f"\n\nFinding {i + 1}:",
-                        fg=typer.colors.BRIGHT_YELLOW,
-                        bold=True,
-                    ),
-                )
-                output.append("\n  File: ")
-                output.append(
-                    typer.style(
-                        finding.file_path,
-                        fg=typer.colors.BRIGHT_WHITE,
-                    )
-                )
-                if finding.line_number:
-                    output.append(":")
-                    output.append(
-                        typer.style(
-                            str(finding.line_number),
-                            fg=typer.colors.BRIGHT_WHITE,
-                        )
-                    )
-                if finding.line_range:
-                    output.append(":")
-                    output.append(
-                        typer.style(
-                            f"{finding.line_range[0]}-{finding.line_range[1]}",
-                            fg=typer.colors.BRIGHT_WHITE,
-                        )
-                    )
-
-                severity_color = self._get_severity_color(finding.severity)
-                output.append("\n  Severity: ")
-                output.append(
-                    typer.style(
-                        finding.severity.value.capitalize(),
-                        fg=severity_color,
-                        bold=True,
-                    ),
-                )
-                output.append(f"\n  Category: {finding.category.value.capitalize()}")
-                output.append(
-                    f"\n  Message: {typer.style(finding.message, fg=typer.colors.WHITE)}",
-                )
-                if finding.suggestion:
-                    suggestion_text = typer.style(finding.suggestion, fg=typer.colors.YELLOW)
-                    output.append(f"\n  Suggestion: {suggestion_text}")
-                if finding.code_example:
-                    output.append(
-                        typer.style(
-                            "\n  Code Example:",
-                            fg=typer.colors.BLUE,
-                        )
-                    )
-                    output.append(
-                        typer.style(
-                            f"```\n{finding.code_example}\n```",
-                            fg=typer.colors.BRIGHT_BLACK,
-                        ),
-                    )
-
-                # Display code excerpt with context if available
-                if finding.code_excerpt:
-                    output.append(
-                        typer.style(
-                            "\n  Code Context:",
-                            fg=typer.colors.BLUE,
-                            bold=True,
-                        )
-                    )
-                    output.append(self._format_code_excerpt(finding))
-                if finding.tool_name:
-                    output.append(
-                        typer.style(f"\nTool: {finding.tool_name}", fg=typer.colors.BRIGHT_BLACK),
-                    )
+                output.extend(self._format_single_finding(i, finding))
         else:
             output.append(
                 typer.style("\nNo findings to report. Great job!", fg=typer.colors.GREEN, bold=True),
             )
+        return output
 
-        output.append("\n==========================================\n\n")
-        return "".join(output)
+    def _format_single_finding(self, index: int, finding: ReviewFinding) -> list[str]:
+        """Formats a single review finding."""
+        output = [
+            typer.style(
+                f"\n\nFinding {index + 1}:",
+                fg=typer.colors.BRIGHT_YELLOW,
+                bold=True,
+            ),
+            "\n  File: ",
+            typer.style(
+                finding.file_path,
+                fg=typer.colors.BRIGHT_WHITE,
+            ),
+        ]
+
+        if finding.line_number:
+            output.append(":")
+            output.append(
+                typer.style(
+                    str(finding.line_number),
+                    fg=typer.colors.BRIGHT_WHITE,
+                )
+            )
+        if finding.line_range:
+            output.append(":")
+            output.append(
+                typer.style(
+                    f"{finding.line_range[0]}-{finding.line_range[1]}",
+                    fg=typer.colors.BRIGHT_WHITE,
+                )
+            )
+
+        severity_color = self._get_severity_color(finding.severity)
+        output.append("\n  Severity: ")
+        output.append(
+            typer.style(
+                finding.severity.value.capitalize(),
+                fg=severity_color,
+                bold=True,
+            ),
+        )
+        output.append(f"\n  Category: {finding.category.value.capitalize()}")
+        output.append(
+            f"\n  Message: {typer.style(finding.message, fg=typer.colors.WHITE)}",
+        )
+        if finding.suggestion:
+            suggestion_text = typer.style(finding.suggestion, fg=typer.colors.YELLOW)
+            output.append(f"\n  Suggestion: {suggestion_text}")
+        if finding.code_example:
+            output.append(
+                typer.style(
+                    "\n  Code Example:",
+                    fg=typer.colors.BLUE,
+                )
+            )
+            output.append(
+                typer.style(
+                    f"```\n{finding.code_example}\n```",
+                    fg=typer.colors.BRIGHT_BLACK,
+                ),
+            )
+
+        # Display code excerpt with context if available
+        if finding.code_excerpt:
+            output.append(
+                typer.style(
+                    "\n  Code Context:",
+                    fg=typer.colors.BLUE,
+                    bold=True,
+                )
+            )
+            output.append(self._format_code_excerpt(finding))
+        if finding.tool_name:
+            output.append(
+                typer.style(f"\nTool: {finding.tool_name}", fg=typer.colors.BRIGHT_BLACK),
+            )
+        return output
+
+    def _format_usage_metadata(self, result: ReviewResult) -> list[str]:
+        """Formats the usage metadata section of the review results."""
+        output = []
+        if result.usage_metadata:
+            output.append(typer.style("\n\n--- Usage Metadata ---", fg=typer.colors.BRIGHT_BLUE, bold=True))
+            if result.usage_metadata.get("input_tokens") is not None:
+                output.append(
+                    f"\nInput Tokens: {typer.style(str(result.usage_metadata['input_tokens']), fg=typer.colors.CYAN)}"
+                )
+            if result.usage_metadata.get("output_tokens") is not None:
+                output.append(
+                    f"\nOutput Tokens: {typer.style(str(result.usage_metadata['output_tokens']), fg=typer.colors.CYAN)}"
+                )
+            if result.usage_metadata.get("total_tokens") is not None:
+                output.append(
+                    f"\nTotal Tokens: {typer.style(str(result.usage_metadata['total_tokens']), fg=typer.colors.CYAN)}"
+                )
+
+            input_token_details = result.usage_metadata.get("input_token_details")
+            if input_token_details:
+                output.append(typer.style("\nInput Token Details:", fg=typer.colors.BLUE, bold=True))
+                output.append(f"{input_token_details}")
+
+            output_token_details = result.usage_metadata.get("output_token_details")
+            if output_token_details:
+                output.append(typer.style("\nOutput Token Details:", fg=typer.colors.BLUE, bold=True))
+                for key, value in output_token_details.items():
+                    output.append(
+                        f"\n  {key.replace('_', ' ').title()}: {typer.style(str(value), fg=typer.colors.CYAN)}"
+                    )
+        return output
 
     def _format_code_excerpt(self, finding: ReviewFinding) -> str:
         """

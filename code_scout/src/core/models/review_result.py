@@ -1,6 +1,7 @@
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from langchain_core.messages.ai import UsageMetadata
 from pydantic import BaseModel
 
 from core.models.review_finding import Category, ReviewFinding, Severity
@@ -20,9 +21,14 @@ class ReviewResult(BaseModel):
     total_lines_reviewed: int
     review_duration: float  # in seconds
     metadata: Dict[str, Any] = {}
+    usage_metadata: Optional[UsageMetadata] = None
 
     @classmethod
-    def aggregate(cls, findings: List[ReviewFinding]) -> "ReviewResult":
+    def aggregate(
+        cls,
+        findings: List[ReviewFinding],
+        usage_metadata: Optional[UsageMetadata],
+    ) -> "ReviewResult":
         """
         Aggregates findings, deduplicates, and generates a summary.
         """
@@ -65,4 +71,5 @@ class ReviewResult(BaseModel):
             total_files_reviewed=total_files,
             total_lines_reviewed=total_lines,
             review_duration=duration,
+            usage_metadata=usage_metadata,
         )

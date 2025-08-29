@@ -1,6 +1,6 @@
 from io import StringIO
-from typing import Any, Optional
 
+from github.File import File
 from unidiff import PatchSet, UnidiffParseError
 
 from core.models.diff_hunk import DiffHunk, DiffLine
@@ -8,8 +8,8 @@ from core.models.parsed_diff import ParsedDiff
 
 
 def parse_github_file(
-    file_obj: Any,
-) -> Optional[ParsedDiff]:
+    file_obj: File,
+) -> ParsedDiff | None:
     """
     Parses a GitHub file object from PyGithub into a structured ParsedDiff object.
 
@@ -41,7 +41,7 @@ def parse_github_file(
     return parse_diff_string(full_diff, file_obj.filename)
 
 
-def parse_diff_string(diff_string: str, filename: str) -> Optional[ParsedDiff]:
+def parse_diff_string(diff_string: str, filename: str) -> ParsedDiff | None:
     """
     Parses a raw unified diff string into a structured ParsedDiff object.
 

@@ -1,13 +1,9 @@
 """CLI commands for managing the code index."""
 
 import json
-import os
 from pathlib import Path
-from typing import List, Optional
 
 import typer
-from dotenv import load_dotenv
-from typer.testing import CliRunner
 
 from cli.cli_options import code_paths_option, db_path_option, file_extensions_option, print_file_paths_option
 from cli.cli_utils import echo_info, echo_warning, handle_cli_exception
@@ -28,9 +24,9 @@ def _get_default_db_path() -> str:
 
 @app.command("build")
 def build_index(
-    code_paths: List[str] = code_paths_option(),  # noqa B008
-    db_path: Optional[str] = db_path_option(),
-    file_extensions: List[str] = file_extensions_option(),  # noqa B008
+    code_paths: list[str] = code_paths_option(),  # noqa B008
+    db_path: str | None = db_path_option(),
+    file_extensions: list[str] = file_extensions_option(),  # noqa B008
     print_file_paths: bool = print_file_paths_option(),
 ) -> None:
     """Build code index for the repository."""
@@ -71,7 +67,7 @@ def build_index(
 @app.command("update")
 def update_file(
     file_path: str = typer.Argument(..., help="Path to the file to update"),
-    db_path: Optional[str] = db_path_option(),
+    db_path: str | None = db_path_option(),
 ) -> None:
     """Update code index for a specific file."""
     try:
@@ -101,9 +97,9 @@ def update_file(
 
 @app.command("rebuild")
 def rebuild_index(
-    code_paths: List[str] = code_paths_option(),  # noqa B008
-    db_path: Optional[str] = db_path_option(),
-    file_extensions: Optional[List[str]] = file_extensions_option(),  # noqa B008
+    code_paths: list[str] = code_paths_option(),  # noqa B008
+    db_path: str | None = db_path_option(),
+    file_extensions: list[str] | None = file_extensions_option(),  # noqa B008
     print_file_paths: bool = print_file_paths_option(),
 ) -> None:
     """Rebuild the entire code index from scratch."""
@@ -144,10 +140,10 @@ def rebuild_index(
 @app.command("search")
 def search_symbols(
     query: str = typer.Argument(..., help="Search query for symbols"),
-    symbol_type: Optional[str] = typer.Option(
+    symbol_type: str | None = typer.Option(
         None, "--type", help="Filter by symbol type (function, class, method, variable)"
     ),
-    file_pattern: Optional[str] = typer.Option(None, "--file", help="Filter by file path pattern"),
+    file_pattern: str | None = typer.Option(None, "--file", help="Filter by file path pattern"),
     json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
 ) -> None:
     """Search for code symbols."""
@@ -203,7 +199,7 @@ def search_symbols(
 
 @app.command("stats")
 def show_stats(
-    db_path: Optional[str] = db_path_option(),
+    db_path: str | None = db_path_option(),
 ) -> None:
     """Show code index statistics."""
     try:
@@ -245,7 +241,7 @@ def show_stats(
 
 @app.command("types")
 def list_symbol_types(
-    db_path: Optional[str] = db_path_option(),
+    db_path: str | None = db_path_option(),
     json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
 ) -> None:
     """List available symbol types in the code index."""
@@ -274,23 +270,3 @@ def list_symbol_types(
 
     except Exception as e:
         handle_cli_exception(e, message="Error retrieving symbol types")
-
-
-if __name__ == "__main__":
-    print(f"Current working directory: {os.getcwd()}")
-
-    load_dotenv("../../.codescout.env")
-    runner = CliRunner()
-    from cli import main
-
-    result = runner.invoke(
-        main.app,
-        [
-            "index",
-            "build",
-        ],
-        catch_exceptions=False,
-        color=True,
-    )
-    print(f"Err: {result.stderr}")
-    print(f"stdout: {result.stdout}")

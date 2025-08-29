@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 
 @dataclass
@@ -9,8 +8,8 @@ class CodeExcerpt:
     content: str
     start_line: int
     end_line: int
-    target_line: Optional[int] = None  # The specific line that was highlighted
-    target_range: Optional[Tuple[int, int]] = None  # The specific range that was highlighted
+    target_line: int | None = None  # The specific line that was highlighted
+    target_range: tuple[int, int] | None = None  # The specific range that was highlighted
 
 
 class CodeExcerptExtractor:
@@ -19,11 +18,11 @@ class CodeExcerptExtractor:
     @staticmethod
     def extract_with_context(
         file_content: str,
-        line_number: Optional[int] = None,
-        line_range: Optional[Tuple[int, int]] = None,
+        line_number: int | None = None,
+        line_range: tuple[int, int] | None = None,
         context_lines: int = 3,
         max_excerpt_lines: int = 20,
-    ) -> Optional[CodeExcerpt]:
+    ) -> "CodeExcerpt | None":
         """
         Extract code excerpt with context lines around a specific line or range.
 

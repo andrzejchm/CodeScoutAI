@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from langchain_core.language_models import BaseLanguageModel
 
@@ -15,7 +16,7 @@ class LLMProvider(ABC):
     def get_llm(
         self,
         code_scout_context: CodeScoutContext,
-    ) -> BaseLanguageModel:
+    ) -> BaseLanguageModel[Any]:
         """
         Retrieves a Language Model instance based on the provided model string and API keys.
         """

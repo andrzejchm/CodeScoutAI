@@ -1,23 +1,11 @@
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Optional
 
-from tree_sitter import Language, Parser, Query, QueryCursor
-from tree_sitter_language_pack import get_language
+from tree_sitter import Language, Node, Parser, Point, Query, QueryCursor
+from tree_sitter_language_pack import SupportedLanguage, get_language
 
 from core.code_index.models import CodeSymbol
 from core.code_index.queries import QUERIES
-
-
-def _print_tree(node, indent=""):
-    """Pretty-print a Node and its named children."""
-    # source should be bytes (as used by tree_sitter)
-    start = node.start_point  # (row, col)
-    end = node.end_point
-
-    print(f"{indent}{node.type} [{start.row}:{start.column}-{end.row}:{end.column}] - {node.text}")
-    for child in node.named_children:
-        _print_tree(child, indent + "  ")
 
 
 class CodeIndexExtractor:
@@ -27,22 +15,24 @@ class CodeIndexExtractor:
 
     def __init__(self):
         """Initialize the extractor with lazy-loaded parsers and languages."""
-        self.parsers: Dict[str, Parser] = {}
-        self.languages: Dict[str, Language] = {}
-        self.extension_map = {
+        self.parsers: dict[str, Parser] = {}
+        self.languages: dict[str, Language] = {}
+        self.extension_map: dict[str, SupportedLanguage] = {
             ".py": "python",
             ".js": "javascript",
             ".ts": "typescript",
             ".dart": "dart",
         }
 
-    def extract_symbols(self, file_path: str, content: str) -> List[CodeSymbol]:  # noqa: PLR0912, PLR0915
+    def extract_symbols(self, file_path: str, content: str) -> list[CodeSymbol]:  # noqa: PLR0912, PLR0915
         """
         Extract symbols from source code content using Tree-sitter queries.
         """
         try:
             language_name = self.detect_language(file_path)
-            if not language_name or language_name not in QUERIES:
+            if not language_name:
+                return []
+            if language_name not in QUERIES:
                 return []
 
             language = self._get_language(language_name)
@@ -55,7 +45,6 @@ class CodeIndexExtractor:
             # print(
             #     f"\n--- S-expression for {file_path} \n--------------\n\n----------------------------------"
             # )
-            _print_tree(tree.root_node)
 
             query_src = QUERIES[language_name]
             query = Query(language, query_src)
@@ -66,13 +55,18 @@ class CodeIndexExtractor:
                 return []
 
             file_hash = hashlib.sha256(source_bytes).hexdigest()
-            symbols: List[CodeSymbol] = []
+            symbols: list[CodeSymbol] = []
 
             # Minimal span wrapper to combine .start/.end nodes into one range
             class _Span:
-                __slots__ = ("end_byte", "end_point", "start_byte", "start_point", "text")
+                __slots__ = ("end_byte", "end_point", "start_byte", "start_point", "text")  # pyright: ignore[reportUnannotatedClassAttribute]
+                start_point: Point
+                end_point: Point
+                start_byte: int
+                end_byte: int
+                text: bytes | None
 
-                def __init__(self, a, b):
+                def __init__(self, a: Node, b: Node) -> None:
                     self.start_point = a.start_point
                     self.end_point = b.end_point
                     self.start_byte = a.start_byte
@@ -80,12 +74,12 @@ class CodeIndexExtractor:
                     self.text = None  # ensures we slice from source_bytes
 
             for match in matches:
-                captures = match[1]  # dict: {capture_name: [nodes...]}
+                captures: dict[str, list[Node]] = match[1]  # dict: {capture_name: [nodes...]}
 
-                definition_node = None
-                name_node = None
-                start_node = None
-                end_node = None
+                definition_node: _Span | None = None
+                name_node: Node | None = None
+                start_node: Node | None = None
+                end_node: Node | None = None
                 symbol_type = ""
 
                 for capture_name, nodes in captures.items():
@@ -94,7 +88,7 @@ class CodeIndexExtractor:
                     node = nodes[0]
 
                     if capture_name.endswith(".definition"):
-                        definition_node = node
+                        definition_node = _Span(node, node)
                         symbol_type = capture_name.split(".")[0]
                     elif capture_name.endswith(".name"):
                         name_node = node
@@ -153,11 +147,11 @@ class CodeIndexExtractor:
             print(f"Error extracting symbols from {file_path}: {e}")
             return []
 
-    def detect_language(self, file_path: str) -> Optional[str]:
+    def detect_language(self, file_path: str) -> SupportedLanguage | None:
         path = Path(file_path)
         return self.extension_map.get(path.suffix.lower())
 
-    def _get_parser(self, language_name: str) -> Optional[Parser]:
+    def _get_parser(self, language_name: SupportedLanguage) -> Parser | None:
         if language_name in self.parsers:
             return self.parsers[language_name]
         try:
@@ -171,13 +165,10 @@ class CodeIndexExtractor:
             print(f"Failed to load parser for {language_name}: {e}")
             return None
 
-    def _get_language(self, language_name: str) -> Optional[Language]:
+    def _get_language(self, language_name: SupportedLanguage) -> Language | None:
         if language_name in self.languages:
             return self.languages[language_name]
-        try:
-            # The language pack expects a literal, but our string detection is reliable.
-            language = get_language(language_name)  # type: ignore
-            self.languages[language_name] = language
-            return language
-        except Exception:
-            return None
+        # The language pack expects a literal, but our string detection is reliable.
+        language = get_language(language_name)  # type: ignore
+        self.languages[language_name] = language
+        return language

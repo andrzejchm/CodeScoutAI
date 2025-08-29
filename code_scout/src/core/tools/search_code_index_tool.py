@@ -1,6 +1,6 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, override
 
-from langchain_core.tools import BaseTool, tool
+from langchain_core.tools import BaseTool, tool  # pyright: ignore[reportUnknownVariableType]
 
 from core.code_index.code_index_config import CodeIndexConfig
 from core.code_index.code_index_manager import CodeIndexManager
@@ -13,7 +13,7 @@ class SearchCodeIndexTool(LangChainReviewTool):
     """Tool that allows LLM to search code symbols using the code index during code review."""
 
     # Maximum length for docstring display
-    MAX_DOCSTRING_LENGTH = 100
+    MAX_DOCSTRING_LENGTH: int = 100
 
     def __init__(self, db_path: str = "./.codescout/code_index.db"):
         """
@@ -22,9 +22,10 @@ class SearchCodeIndexTool(LangChainReviewTool):
         Args:
             db_path: Path to the code index database file
         """
-        self.db_path = db_path
+        self.db_path: str = db_path
 
-    def get_tool(self, diffs: List[CodeDiff]) -> Optional[BaseTool]:
+    @override
+    def get_tool(self, diffs: list[CodeDiff]) -> BaseTool | None:
         """
         Create code index search tool configured for the given diffs.
 
@@ -50,9 +51,9 @@ class SearchCodeIndexTool(LangChainReviewTool):
         def search_code_index(
             query: Annotated[str, "Search query for finding code symbols (functions, classes, methods, etc.)"],
             symbol_type: Annotated[
-                Optional[str], "Filter by symbol type: 'function', 'class', 'method', 'variable', 'import'"
+                str | None, "Filter by symbol type: 'function', 'class', 'method', 'variable', 'import'"
             ] = None,
-            file_pattern: Annotated[Optional[str], "Filter by file pattern (e.g., '*.py', 'src/*')"] = None,
+            file_pattern: Annotated[str | None, "Filter by file pattern (e.g., '*.py', 'src/*')"] = None,
             limit: Annotated[int, "Maximum number of results to return"] = 20,
         ) -> str:
             """Search the code index for symbols (functions, classes, methods, variables, imports).
@@ -92,7 +93,7 @@ class SearchCodeIndexTool(LangChainReviewTool):
 
         return search_code_index
 
-    def _format_search_results(self, results: List[CodeSymbol]) -> str:
+    def _format_search_results(self, results: list[CodeSymbol]) -> str:
         """
         Format search results into a clear, concise string for the LLM.
 

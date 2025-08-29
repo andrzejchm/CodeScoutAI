@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 import typer
 from dotenv import load_dotenv
 from typer.testing import CliRunner
@@ -32,7 +30,7 @@ def _perform_review(
     repo_name: str,
     pr_number: int,
     github_token: str,
-):
+) -> None:
     """
     Private method to perform the actual code review logic.
     """
@@ -54,7 +52,7 @@ def _perform_review(
             cli_context=code_scout_context,
         )
 
-        review_agent.review_code()
+        _ = review_agent.review_code()  # Assign to _ to explicitly ignore the result
 
     except typer.Exit:
         pass
@@ -82,12 +80,12 @@ def interactive_review(
     repo_owner: str = repo_owner_option(),
     repo_name: str = repo_name_option(),
     github_token: str = github_token_option(),
-):
+) -> None:
     echo_info(message=f"Starting github interactive review for {repo_owner}/{repo_name}")
     try:
         github_service = GitHubService(github_token, repo_owner, repo_name)
 
-        def fetch_pull_requests_page(page: int, _per_page: int) -> List[Tuple[str, int]]:
+        def fetch_pull_requests_page(page: int, _per_page: int) -> list[tuple[str, int]]:
             pull_requests = github_service.get_open_pull_requests(page=page)
             return [
                 (f"#{pr.number}: {pr.title} by {pr.user.login} (Branch: {pr.head.ref})", pr.number)
@@ -131,15 +129,16 @@ def interactive_review(
 
 
 if __name__ == "__main__":
-    load_dotenv(".codescout.env")
+    # The load_dotenv call here is for testing purposes when running github_cli.py directly.
+    # In a real CLI execution via main.py, dotenv is loaded by main.py's callback.
+    _ = load_dotenv(".codescout.env")  # Assign to _ to explicitly ignore the result
     cli_config.is_debug = True
     runner = CliRunner()
-    from cli import main
 
     # Example usage of review-pr command
     result = runner.invoke(
-        main.app,
-        ["github", "review-pr", "--pr-number", "257"],
+        app,
+        ["review-pr", "--pr-number", "257"],
         catch_exceptions=False,
         color=True,
     )

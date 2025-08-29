@@ -44,6 +44,6 @@ def review(
             cli_context=code_scout_context,
         )
 
-        review_agent.review_code()
+        _ = review_agent.review_code()
     except Exception as e:
         handle_cli_exception(e, message="Error reviewing Git repository")

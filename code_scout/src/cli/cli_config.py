@@ -4,7 +4,10 @@ class CLIConfig:
     This acts as a singleton-like object to hold global settings.
     """
 
-    _instance = None
+    _instance: "CLIConfig | None" = None
+
+    def __init__(self):
+        self._is_debug: bool = False
 
     def __new__(cls):
         if cls._instance is None:
@@ -17,7 +20,7 @@ class CLIConfig:
         return self._is_debug
 
     @is_debug.setter
-    def is_debug(self, value: bool):
+    def is_debug(self, value: bool) -> None:
         self._is_debug = value
 
 

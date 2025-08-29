@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List
 
 from core.models.code_diff import CodeDiff
 
@@ -11,7 +10,7 @@ class DiffProvider(ABC):
     """
 
     @abstractmethod
-    def get_diff(self) -> List[CodeDiff]:
+    def get_diff(self) -> list[CodeDiff]:
         """
         Retrieves a list of code differences.
         Implementations should define how they obtain these differences

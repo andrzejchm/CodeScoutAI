@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -29,16 +29,16 @@ class ReviewFinding(BaseModel):
     severity: Severity
     category: Category
     file_path: str
-    line_number: Optional[int] = None
-    line_range: Optional[Tuple[int, int]] = None
+    line_number: int | None = None
+    line_range: tuple[int, int] | None = None
     message: str
-    suggestion: Optional[str] = None
-    code_example: Optional[str] = None
+    suggestion: str | None = None
+    code_example: str | None = None
     confidence: float = 1.0  # Confidence score from 0.0 to 1.0
-    tool_name: Optional[str] = None  # Which tool/chain generated this finding
-    metadata: Dict[str, Any] = {}
+    tool_name: str | None = None  # Which tool/chain generated this finding
+    metadata: dict[str, Any] = {}
 
     # Code excerpt fields for showing context around the finding
-    code_excerpt: Optional[str] = None  # The actual code lines with context
-    excerpt_start_line: Optional[int] = None  # Starting line number of excerpt
-    excerpt_end_line: Optional[int] = None  # Ending line number of excerpt
+    code_excerpt: str | None = None  # The actual code lines with context
+    excerpt_start_line: int | None = None  # Starting line number of excerpt
+    excerpt_end_line: int | None = None  # Ending line number of excerpt

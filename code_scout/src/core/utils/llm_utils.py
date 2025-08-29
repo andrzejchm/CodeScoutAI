@@ -1,17 +1,11 @@
 """Utility functions for working with LangChain LLM responses and models."""
 
+from typing import Any
+
 from langchain_core.language_models import BaseLanguageModel
 
 
-def extract_content(response) -> str:
-    """Extract content from LangChain response."""
-    if hasattr(response, "content"):
-        content = response.content
-        return str(content) if content is not None else ""
-    return str(response)
-
-
-def get_model_info(llm: BaseLanguageModel) -> dict:
+def get_model_info(llm: BaseLanguageModel[Any]) -> dict[str, str]:
     """Extract model metadata from LangChain model instance."""
     return {
         "name": getattr(llm, "model_name", getattr(llm, "model", "unknown")),

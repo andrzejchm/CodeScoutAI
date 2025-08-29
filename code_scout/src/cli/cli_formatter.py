@@ -1,3 +1,5 @@
+from typing import override
+
 import typer
 
 from core.interfaces.review_formatter import ReviewFormatter
@@ -10,11 +12,12 @@ class CliFormatter(ReviewFormatter):
     A formatter for displaying review results in the command line interface.
     """
 
+    @override
     def format(self, result: ReviewResult) -> str:
         """
         Formats the review result into a human-readable string for CLI output.
         """
-        output = []
+        output: list[str] = []
         output.extend(self._format_header(result))
         output.extend(self._format_summary(result))
         output.extend(self._format_findings(result))
@@ -31,13 +34,8 @@ class CliFormatter(ReviewFormatter):
                 bold=True,
             ),
             f"\nTotal Files Reviewed: {typer.style(str(result.total_files_reviewed), fg=typer.colors.CYAN)}",
-            "\nTotal Lines Reviewed: ",
-            typer.style(
-                str(result.total_lines_reviewed),
-                fg=typer.colors.CYAN,
-            ),
-            "\nReview Duration: ",
-            f"{typer.style(f'{result.review_duration:.2f}', fg=typer.colors.CYAN)} seconds",
+            f"\nTotal Lines Reviewed: {typer.style(str(result.total_lines_reviewed), fg=typer.colors.CYAN)}",
+            f"\nReview Duration: {typer.style(f'{result.review_duration:.2f}', fg=typer.colors.CYAN)} seconds",
         ]
 
     def _format_summary(self, result: ReviewResult) -> list[str]:
@@ -50,21 +48,25 @@ class CliFormatter(ReviewFormatter):
         for severity, count in result.summary.severity.items():
             color = self._get_severity_color(severity)
             output.append(
-                f"\n  - {typer.style(severity.value.capitalize(), fg=color)}: "
-                f"{typer.style(str(count), fg=typer.colors.CYAN)}",
+                (
+                    f"\n  - {typer.style(severity.value.capitalize(), fg=color)}: "
+                    f"{typer.style(str(count), fg=typer.colors.CYAN)}"
+                )
             )
 
         output.append(typer.style("\nCategory:", fg=typer.colors.BLUE, bold=True))
         for category, count in result.summary.category.items():
             output.append(
-                f"\n  - {typer.style(category.value.capitalize(), fg=typer.colors.GREEN)}: "
-                f"{typer.style(str(count), fg=typer.colors.CYAN)}",
+                (
+                    f"\n  - {typer.style(category.value.capitalize(), fg=typer.colors.GREEN)}: "
+                    f"{typer.style(str(count), fg=typer.colors.CYAN)}"
+                )
             )
         return output
 
     def _format_findings(self, result: ReviewResult) -> list[str]:
         """Formats the findings section of the review results."""
-        output = []
+        output: list[str] = []
         if result.findings:
             output.append(
                 typer.style(
@@ -161,28 +163,26 @@ class CliFormatter(ReviewFormatter):
 
     def _format_usage_metadata(self, result: ReviewResult) -> list[str]:
         """Formats the usage metadata section of the review results."""
-        output = []
-        if result.usage_metadata:
+        output: list[str] = []
+        usage_metadata = result.usage_metadata
+        if usage_metadata:
             output.append(typer.style("\n\n--- Usage Metadata ---", fg=typer.colors.BRIGHT_BLUE, bold=True))
-            if result.usage_metadata.get("input_tokens") is not None:
-                output.append(
-                    f"\nInput Tokens: {typer.style(str(result.usage_metadata['input_tokens']), fg=typer.colors.CYAN)}"
-                )
-            if result.usage_metadata.get("output_tokens") is not None:
-                output.append(
-                    f"\nOutput Tokens: {typer.style(str(result.usage_metadata['output_tokens']), fg=typer.colors.CYAN)}"
-                )
-            if result.usage_metadata.get("total_tokens") is not None:
-                output.append(
-                    f"\nTotal Tokens: {typer.style(str(result.usage_metadata['total_tokens']), fg=typer.colors.CYAN)}"
-                )
+            output.append(
+                f"\nInput Tokens: {typer.style(str(usage_metadata.get('input_tokens')), fg=typer.colors.CYAN)}"
+            )
+            output.append(
+                f"\nOutput Tokens: {typer.style(str(usage_metadata.get('output_tokens')), fg=typer.colors.CYAN)}"
+            )
+            output.append(
+                f"\nTotal Tokens: {typer.style(str(usage_metadata.get('total_tokens')), fg=typer.colors.CYAN)}"
+            )
 
-            input_token_details = result.usage_metadata.get("input_token_details")
+            input_token_details = usage_metadata.get("input_token_details")
             if input_token_details:
                 output.append(typer.style("\nInput Token Details:", fg=typer.colors.BLUE, bold=True))
                 output.append(f"{input_token_details}")
 
-            output_token_details = result.usage_metadata.get("output_token_details")
+            output_token_details = usage_metadata.get("output_token_details")
             if output_token_details:
                 output.append(typer.style("\nOutput Token Details:", fg=typer.colors.BLUE, bold=True))
                 for key, value in output_token_details.items():
@@ -199,15 +199,14 @@ class CliFormatter(ReviewFormatter):
             return ""
 
         lines = finding.code_excerpt.split("\n")
-        formatted_lines = []
-
-        # Add top border
-        formatted_lines.append(
+        formatted_lines: list[str] = [
             typer.style(
                 "\n  ┌─────────────────────────────────────────",
                 fg=typer.colors.BRIGHT_BLACK,
             )
-        )
+        ]
+
+        # Add top border
 
         current_line = finding.excerpt_start_line
         for line in lines:
@@ -260,6 +259,7 @@ class CliFormatter(ReviewFormatter):
         elif severity == Severity.SUGGESTION:
             return typer.colors.BLUE
 
+    @override
     def get_formatter_name(self) -> str:
         """
         Returns the name of this formatter.

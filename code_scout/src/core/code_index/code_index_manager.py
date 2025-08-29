@@ -1,9 +1,9 @@
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Callable
 
-from gitignore_parser import parse_gitignore
+from gitignore_parser import parse_gitignore  # pyright: ignore[reportUnknownVariableType]
 
 from cli.cli_utils import echo_info
 from core.code_index.code_index_config import CodeIndexConfig
@@ -20,6 +20,10 @@ class CodeIndexManager:
     high-level operations for building, updating, and searching code indexes.
     """
 
+    config: CodeIndexConfig
+    repository: CodeIndexRepository
+    extractor: CodeIndexExtractor
+
     def __init__(self, config: CodeIndexConfig):
         self.config = config
         self.repository = CodeIndexRepository(config.db_path)
@@ -27,7 +31,7 @@ class CodeIndexManager:
 
     def build_index(
         self,
-        code_paths: List[str],
+        code_paths: list[str],
         print_file_paths: bool,
     ) -> IndexResult:
         """
@@ -83,7 +87,7 @@ class CodeIndexManager:
 
     def rebuild_index(
         self,
-        code_paths: List[str],
+        code_paths: list[str],
         print_file_paths: bool,
     ) -> IndexResult:
         """
@@ -102,7 +106,7 @@ class CodeIndexManager:
             print_file_paths=print_file_paths,
         )
 
-    def search_symbols(self, query: CodeIndexQuery) -> List[CodeSymbol]:
+    def search_symbols(self, query: CodeIndexQuery) -> list[CodeSymbol]:
         """
         Searches for code symbols in the index.
 
@@ -129,7 +133,7 @@ class CodeIndexManager:
         """
         return self.repository.get_index_stats()
 
-    def get_symbol_types(self) -> List[str]:
+    def get_symbol_types(self) -> list[str]:
         """
         Retrieves a list of distinct symbol types present in the index.
 
@@ -158,7 +162,7 @@ class CodeIndexManager:
 
     def _index_code_paths(
         self,
-        code_paths: List[str],
+        code_paths: list[str],
         print_file_paths: bool,
     ) -> IndexResult:
         """
@@ -166,7 +170,7 @@ class CodeIndexManager:
         """
         total_symbols_indexed = 0
         total_files_processed = 0
-        errors: List[str] = []
+        errors: list[str] = []
 
         for code_path in code_paths:
             repo_path_obj = Path(code_path)
@@ -175,7 +179,9 @@ class CodeIndexManager:
                 continue
 
             gitignore_path = repo_path_obj / ".gitignore"
-            matches = parse_gitignore(gitignore_path, repo_path_obj.as_posix()) if gitignore_path.exists() else None
+            matches: Callable[..., bool] | None = (
+                parse_gitignore(gitignore_path, repo_path_obj.as_posix()) if gitignore_path.exists() else None
+            )  # pyright: ignore[reportUnknownVariableType]
 
             for file_path_str in self._scan_files(code_path, matches):
                 relative_file_path = str(Path(file_path_str).relative_to(repo_path_obj))
@@ -208,11 +214,11 @@ class CodeIndexManager:
             errors=errors,
         )
 
-    def _scan_files(self, code_path: str, gitignore_matches: Optional[Any]) -> List[str]:
+    def _scan_files(self, code_path: str, gitignore_matches: Any) -> list[str]:
         """
         Scans the given code path for files to be indexed, respecting .gitignore and file extensions.
         """
-        file_paths: List[str] = []
+        file_paths: list[str] = []
         code_path_obj = Path(code_path)
         for root, _, files in os.walk(code_path):
             for file in files:

@@ -62,7 +62,7 @@ def test_parse_diff_string_empty_diff():
     assert parsed_diff is None
 
 
-def test_parse_diff_string_github_diff():
+def test_parse_diff_string_git_diff():
     """
     Test parsing a real-world GitHub diff with multiple files and hunks.
     """

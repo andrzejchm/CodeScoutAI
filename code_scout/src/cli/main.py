@@ -1,7 +1,6 @@
 """CLI interface for Code Scout."""
 
 import os
-from typing import Optional
 
 import typer
 from dotenv import load_dotenv
@@ -22,7 +21,7 @@ from src.cli.cli_options import (
 from src.cli.cli_utils import handle_cli_exception  # Import the new utility function
 
 # Load default .env file at module import time
-load_dotenv()
+_ = load_dotenv()
 
 app = typer.Typer(
     help="Code Scout CLI for automated code reviews.",
@@ -36,11 +35,11 @@ def main(  # noqa: PLR0913
     ctx: typer.Context,
     # env_file param is required and needs to be first in order to first process the .env file
     # and only then load other parameters
-    _env_file: Optional[str] = env_file_option(),
+    _env_file: str | None = env_file_option(),
     model: str = model_option(),
-    openrouter_api_key: Optional[str] = openrouter_api_key_option(),
-    openai_api_key: Optional[str] = openai_api_key_option(),
-    claude_api_key: Optional[str] = claude_api_key_option(),
+    openrouter_api_key: str | None = openrouter_api_key_option(),
+    openai_api_key: str | None = openai_api_key_option(),
+    claude_api_key: str | None = claude_api_key_option(),
     debug: bool = typer.Option(
         default=False,
         envvar="CODESCOUT_DEBUG",
@@ -55,7 +54,7 @@ def main(  # noqa: PLR0913
     """
 
     # Set the debug flag in the centralized config
-    cli_config.is_debug = debug if debug is not None else os.getenv("CODESCOUT_DEBUG", "false").lower() == "true"
+    cli_config.is_debug = debug or os.getenv("CODESCOUT_DEBUG", "false").lower() == "true"
 
     ctx.obj = CodeScoutContext(
         model=model,

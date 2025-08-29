@@ -1,8 +1,6 @@
 from enum import Enum
-from typing import TYPE_CHECKING, List
 
-if TYPE_CHECKING:
-    from core.interfaces.langchain_review_tool import LangChainReviewTool
+from core.interfaces.langchain_review_tool import LangChainReviewTool
 
 
 class ReviewType(str, Enum):
@@ -18,9 +16,16 @@ class ReviewType(str, Enum):
 class ReviewConfig:
     """Configuration for the code review pipeline."""
 
+    langchain_tools: list[LangChainReviewTool]
+    show_code_excerpts: bool
+    context_lines_before: int
+    context_lines_after: int
+    max_excerpt_lines: int
+    max_tool_calls_per_review: int
+
     def __init__(  # noqa: PLR0913
         self,
-        langchain_tools: List["LangChainReviewTool"],
+        langchain_tools: list["LangChainReviewTool"],
         max_tool_calls_per_review: int = 10,
         show_code_excerpts: bool = True,
         context_lines_before: int = 3,

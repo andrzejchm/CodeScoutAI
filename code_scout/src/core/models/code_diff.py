@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel
 
 from .diff_hunk import DiffHunk
@@ -8,12 +6,12 @@ from .parsed_diff import ParsedDiff
 
 class CodeDiff(BaseModel):
     diff: str  # The raw diff string
-    hunks: List[DiffHunk]  # A list of hunks for direct access by the review chain
-    parsed_diff: Optional[ParsedDiff] = None  # The full parsed object for detailed analysis
+    hunks: list[DiffHunk]  # A list of hunks for direct access by the review chain
+    parsed_diff: ParsedDiff | None = None  # The full parsed object for detailed analysis
     file_path: str
-    old_file_path: Optional[str] = None
+    old_file_path: str | None = None
     change_type: str
-    current_file_content: Optional[str] = None  # Full current file content for excerpt extraction
+    current_file_content: str | None = None  # Full current file content for excerpt extraction
 
     @property
     def llm_repr(self) -> str:

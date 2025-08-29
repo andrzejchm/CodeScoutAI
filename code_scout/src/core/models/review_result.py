@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from langchain_core.messages.ai import UsageMetadata
 from pydantic import BaseModel
@@ -8,33 +8,33 @@ from core.models.review_finding import Category, ReviewFinding, Severity
 
 
 class ReviewSummary(BaseModel):
-    severity: Dict[Severity, int] = defaultdict(int)
-    category: Dict[Category, int] = defaultdict(int)
+    severity: dict[Severity, int] = defaultdict(int)
+    category: dict[Category, int] = defaultdict(int)
 
 
 class ReviewResult(BaseModel):
     """Aggregated results of a code review."""
 
-    findings: List[ReviewFinding]
+    findings: list[ReviewFinding]
     summary: ReviewSummary
     total_files_reviewed: int
     total_lines_reviewed: int
     review_duration: float  # in seconds
-    metadata: Dict[str, Any] = {}
-    usage_metadata: Optional[UsageMetadata] = None
+    metadata: dict[str, Any] = {}
+    usage_metadata: UsageMetadata | None = None
 
     @classmethod
     def aggregate(
         cls,
-        findings: List[ReviewFinding],
-        usage_metadata: Optional[UsageMetadata],
+        findings: list[ReviewFinding],
+        usage_metadata: UsageMetadata | None,
     ) -> "ReviewResult":
         """
         Aggregates findings, deduplicates, and generates a summary.
         """
         # Simple deduplication for now (can be enhanced later)
-        unique_findings = []
-        seen_findings = set()
+        unique_findings: list[ReviewFinding] = []
+        seen_findings: set[tuple[str, int | None, str, str, str]] = set()
         for finding in findings:
             finding_tuple = (
                 finding.file_path,
@@ -48,8 +48,8 @@ class ReviewResult(BaseModel):
                 seen_findings.add(finding_tuple)
 
         # Generate summary
-        summary_by_severity = defaultdict(int)
-        summary_by_category = defaultdict(int)
+        summary_by_severity: dict[Severity, int] = defaultdict(int)
+        summary_by_category: dict[Category, int] = defaultdict(int)
 
         for finding in unique_findings:
             summary_by_severity[finding.severity] += 1

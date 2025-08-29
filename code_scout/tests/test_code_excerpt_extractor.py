@@ -4,7 +4,7 @@ from core.utils.code_excerpt_extractor import CodeExcerptExtractor
 class TestCodeExcerptExtractor:
     """Test cases for the CodeExcerptExtractor utility."""
 
-    def test_extract_with_context_single_line(self):
+    def test_extract_with_context_single_line(self) -> None:
         """Test extracting context around a single line."""
         file_content = """def hello_world():
     print("Hello, World!")
@@ -29,7 +29,7 @@ def another_function():
         assert 'print("Hello, World!")' in excerpt.content
         assert 'return "success"' in excerpt.content
 
-    def test_extract_with_context_line_range(self):
+    def test_extract_with_context_line_range(self) -> None:
         """Test extracting context around a line range."""
         file_content = """class MyClass:
     def __init__(self):
@@ -53,7 +53,7 @@ def another_function():
         assert "def increment(self):" in excerpt.content
         assert "return self.value" in excerpt.content
 
-    def test_extract_with_context_file_boundaries(self):
+    def test_extract_with_context_file_boundaries(self) -> None:
         """Test that extraction respects file boundaries."""
         file_content = """line 1
 line 2
@@ -81,7 +81,7 @@ line 3"""
         assert excerpt.start_line == 1
         assert excerpt.end_line == 3
 
-    def test_extract_with_max_excerpt_lines(self):
+    def test_extract_with_max_excerpt_lines(self) -> None:
         """Test that max_excerpt_lines is respected."""
         file_content = "\n".join([f"line {i}" for i in range(1, 21)])  # 20 lines
 
@@ -97,7 +97,7 @@ line 3"""
         lines_in_excerpt = len(excerpt.content.split("\n"))
         assert lines_in_excerpt <= 5
 
-    def test_extract_invalid_inputs(self):
+    def test_extract_invalid_inputs(self) -> None:
         """Test handling of invalid inputs."""
         file_content = "line 1\nline 2\nline 3"
 
@@ -113,7 +113,7 @@ line 3"""
         excerpt = CodeExcerptExtractor.extract_with_context(file_content=file_content, line_number=100)
         assert excerpt is None
 
-    def test_is_binary_content(self):
+    def test_is_binary_content(self) -> None:
         """Test binary content detection."""
         # Text content
         assert not CodeExcerptExtractor.is_binary_content("Hello, World!")
@@ -126,7 +126,7 @@ line 3"""
         non_printable = "".join([chr(i) for i in range(0, 32)] * 10)
         assert CodeExcerptExtractor.is_binary_content(non_printable)
 
-    def test_is_file_too_large(self):
+    def test_is_file_too_large(self) -> None:
         """Test file size checking."""
         small_content = "Hello, World!"
         assert not CodeExcerptExtractor.is_file_too_large(small_content, max_size_kb=1)

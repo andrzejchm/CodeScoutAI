@@ -1,17 +1,19 @@
-from typing import Optional
-
-
 class CodeScoutContext:
     """
     A custom class to hold common CLI options for Typer context.
     """
 
+    model: str
+    openrouter_api_key: str | None
+    openai_api_key: str | None
+    claude_api_key: str | None
+
     def __init__(
         self,
         model: str,
-        openrouter_api_key: Optional[str],
-        openai_api_key: Optional[str],
-        claude_api_key: Optional[str],
+        openrouter_api_key: str | None,
+        openai_api_key: str | None,
+        claude_api_key: str | None,
     ):
         self.model = model
         self.openrouter_api_key = openrouter_api_key

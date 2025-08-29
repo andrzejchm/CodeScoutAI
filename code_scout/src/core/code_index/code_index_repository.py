@@ -1,13 +1,15 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .models import CodeSymbol, IndexStats
 
 
 class CodeIndexRepository:
     """Manages SQLite database operations for the code index service."""
+
+    db_path: str
 
     def __init__(self, db_path: str):
         """Initialize the repository with database path.
@@ -27,7 +29,7 @@ class CodeIndexRepository:
             cursor = conn.cursor()
 
             # Create metadata table
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TABLE IF NOT EXISTS code_index_meta (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
@@ -35,7 +37,7 @@ class CodeIndexRepository:
             """)
 
             # Create main code index table
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TABLE IF NOT EXISTS code_index (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -61,7 +63,7 @@ class CodeIndexRepository:
             """)
 
             # Create FTS5 virtual table
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS code_index_fts USING fts5(
                     name,
                     signature,
@@ -76,7 +78,7 @@ class CodeIndexRepository:
             """)
 
             # Create triggers for FTS synchronization
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TRIGGER IF NOT EXISTS code_index_after_insert
                 AFTER INSERT ON code_index BEGIN
                     INSERT INTO code_index_fts(rowid, name, signature, docstring, parent_symbol, file_path, language)
@@ -86,7 +88,7 @@ class CodeIndexRepository:
                 END
             """)
 
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TRIGGER IF NOT EXISTS code_index_after_update
                 AFTER UPDATE ON code_index BEGIN
                     INSERT INTO code_index_fts(code_index_fts, rowid) VALUES('delete', old.id);
@@ -97,7 +99,7 @@ class CodeIndexRepository:
                 END
             """)
 
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TRIGGER IF NOT EXISTS code_index_after_delete
                 AFTER DELETE ON code_index BEGIN
                     INSERT INTO code_index_fts(code_index_fts, rowid) VALUES('delete', old.id);
@@ -117,10 +119,10 @@ class CodeIndexRepository:
             ]
 
             for index_sql in indexes:
-                cursor.execute(index_sql)
+                _ = cursor.execute(index_sql)
 
             # Create file tracking table
-            cursor.execute("""
+            _ = cursor.execute("""
                 CREATE TABLE IF NOT EXISTS indexed_files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     file_path TEXT UNIQUE NOT NULL,
@@ -131,8 +133,8 @@ class CodeIndexRepository:
             """)
 
             # Create indexes for file tracking
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_indexed_files_path ON indexed_files(file_path)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_indexed_files_hash ON indexed_files(file_hash)")
+            _ = cursor.execute("CREATE INDEX IF NOT EXISTS idx_indexed_files_path ON indexed_files(file_path)")
+            _ = cursor.execute("CREATE INDEX IF NOT EXISTS idx_indexed_files_hash ON indexed_files(file_hash)")
 
             conn.commit()
 
@@ -143,14 +145,14 @@ class CodeIndexRepository:
 
         # Apply SQLite optimization pragmas
         cursor = conn.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA temp_store=MEMORY")
-        cursor.execute("PRAGMA cache_size=-20000")
+        _ = cursor.execute("PRAGMA journal_mode=WAL")
+        _ = cursor.execute("PRAGMA synchronous=NORMAL")
+        _ = cursor.execute("PRAGMA temp_store=MEMORY")
+        _ = cursor.execute("PRAGMA cache_size=-20000")
 
         return conn
 
-    def insert_symbols(self, symbols: List[CodeSymbol]) -> None:
+    def insert_symbols(self, symbols: list[CodeSymbol]) -> None:
         """Insert a batch of symbols using a transaction."""
         if not symbols:
             return
@@ -159,7 +161,7 @@ class CodeIndexRepository:
             cursor = conn.cursor()
 
             for symbol in symbols:
-                cursor.execute(
+                _ = cursor.execute(
                     """
                     INSERT OR REPLACE INTO code_index (
                         name, symbol_type, file_path, line_number, column_number,
@@ -194,17 +196,17 @@ class CodeIndexRepository:
         """Delete all symbols for a given file."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM code_index WHERE file_path = ?", (file_path,))
+            _ = cursor.execute("DELETE FROM code_index WHERE file_path = ?", (file_path,))
             conn.commit()
 
     def count_symbols_by_file(self, file_path: str) -> int:
         """Count the number of symbols for a given file."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) as count FROM code_index WHERE file_path = ?", (file_path,))
+            _ = cursor.execute("SELECT COUNT(*) as count FROM code_index WHERE file_path = ?", (file_path,))
             return cursor.fetchone()["count"]
 
-    def search_fts(self, query: str, filters: dict[str, Any]) -> List[CodeSymbol]:
+    def search_fts(self, query: str, filters: dict[str, Any]) -> list[CodeSymbol]:
         """Perform a search against the FTS table with optional filters."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -218,7 +220,7 @@ class CodeIndexRepository:
                 JOIN code_index_fts fts ON ci.id = fts.rowid
                 WHERE code_index_fts MATCH ?
             """
-            params: List[Any] = [fts_query]
+            params: list[Any] = [fts_query]
 
             # Apply filters
             if filters.get("symbol_type"):
@@ -237,16 +239,16 @@ class CodeIndexRepository:
             sql += " ORDER BY bm25(code_index_fts) LIMIT ?"
             params.append(filters.get("limit", 20))
 
-            cursor.execute(sql, params)
+            _ = cursor.execute(sql, params)
             rows = cursor.fetchall()
 
             return [self._row_to_symbol(row) for row in rows]
 
-    def get_file_hash(self, file_path: str) -> Optional[str]:
+    def get_file_hash(self, file_path: str) -> str | None:
         """Retrieve the stored hash for a file."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT file_hash FROM indexed_files WHERE file_path = ?", (file_path,))
+            _ = cursor.execute("SELECT file_hash FROM indexed_files WHERE file_path = ?", (file_path,))
             row = cursor.fetchone()
             return row["file_hash"] if row else None
 
@@ -254,7 +256,7 @@ class CodeIndexRepository:
         """Update file tracking information."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
+            _ = cursor.execute(
                 """
                 INSERT OR REPLACE INTO indexed_files (file_path, file_hash, symbol_count, last_indexed)
                 VALUES (?, ?, ?, ?)
@@ -269,15 +271,15 @@ class CodeIndexRepository:
             cursor = conn.cursor()
 
             # Get total symbols
-            cursor.execute("SELECT COUNT(*) as count FROM code_index")
+            _ = cursor.execute("SELECT COUNT(*) as count FROM code_index")
             total_symbols = cursor.fetchone()["count"]
 
             # Get total files
-            cursor.execute("SELECT COUNT(*) as count FROM indexed_files")
+            _ = cursor.execute("SELECT COUNT(*) as count FROM indexed_files")
             total_files = cursor.fetchone()["count"]
 
             # Get symbols by type
-            cursor.execute("""
+            _ = cursor.execute("""
                 SELECT symbol_type, COUNT(*) as count
                 FROM code_index
                 GROUP BY symbol_type
@@ -285,7 +287,7 @@ class CodeIndexRepository:
             symbols_by_type = {row["symbol_type"]: row["count"] for row in cursor.fetchall()}
 
             # Get symbols by language
-            cursor.execute("""
+            _ = cursor.execute("""
                 SELECT language, COUNT(*) as count
                 FROM code_index
                 GROUP BY language
@@ -293,7 +295,7 @@ class CodeIndexRepository:
             symbols_by_language = {row["language"]: row["count"] for row in cursor.fetchall()}
 
             # Get last updated
-            cursor.execute("""
+            _ = cursor.execute("""
                 SELECT MAX(last_indexed) as last_updated
                 FROM indexed_files
             """)
@@ -310,24 +312,24 @@ class CodeIndexRepository:
                 last_updated=last_updated,
             )
 
-    def get_distinct_symbol_types(self) -> List[str]:
+    def get_distinct_symbol_types(self) -> list[str]:
         """
         Get distinct symbol types present in the index.
 
         Returns:
-            List of symbol type strings
+            list of symbol type strings
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT DISTINCT symbol_type FROM code_index ORDER BY symbol_type")
+            _ = cursor.execute("SELECT DISTINCT symbol_type FROM code_index ORDER BY symbol_type")
             rows = cursor.fetchall()
             return [row["symbol_type"] for row in rows]
 
-    def get_indexed_files(self) -> List[Dict[str, Any]]:
+    def get_indexed_files(self) -> list[dict[str, Any]]:
         """Retrieve all file paths and hashes."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            _ = cursor.execute("""
                 SELECT file_path, file_hash, symbol_count, last_indexed
                 FROM indexed_files
                 ORDER BY file_path
@@ -344,8 +346,8 @@ class CodeIndexRepository:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM code_index")
-            cursor.execute("DELETE FROM indexed_files")
+            _ = cursor.execute("DELETE FROM code_index")
+            _ = cursor.execute("DELETE FROM indexed_files")
             conn.commit()
 
     def index_exists(self) -> bool:
@@ -359,33 +361,29 @@ class CodeIndexRepository:
 
     def validate_schema(self) -> bool:
         """Check if the database schema is valid."""
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-                # Check if required tables exist
-                required_tables = ["code_index", "code_index_fts", "indexed_files", "code_index_meta"]
-                cursor.execute(
-                    """
-                    SELECT name FROM sqlite_master
-                    WHERE type='table' AND name IN ({})
-                """.format(",".join("?" * len(required_tables))),
-                    required_tables,
-                )
+            # Check if required tables exist
+            required_tables = ["code_index", "code_index_fts", "indexed_files", "code_index_meta"]
+            _ = cursor.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name IN ({})
+            """.format(",".join("?" * len(required_tables))),
+                required_tables,
+            )
 
-                existing_tables = {row["name"] for row in cursor.fetchall()}
+            existing_tables = {row["name"] for row in cursor.fetchall()}
 
-                # Check if all required tables exist
-                if not all(table in existing_tables for table in required_tables):
-                    return False
+            # Check if all required tables exist
+            if not all(table in existing_tables for table in required_tables):
+                return False
 
-                # Check if FTS table is properly configured
-                cursor.execute("SELECT sql FROM sqlite_master WHERE name='code_index_fts'")
-                fts_sql = cursor.fetchone()
-                return fts_sql and "fts5" in fts_sql["sql"].lower()
-
-        except Exception:
-            return False
+            # Check if FTS table is properly configured
+            _ = cursor.execute("SELECT sql FROM sqlite_master WHERE name='code_index_fts'")
+            fts_sql = cursor.fetchone()
+            return fts_sql and "fts5" in fts_sql["sql"].lower()
 
     def _row_to_symbol(self, row: sqlite3.Row) -> CodeSymbol:
         """Convert a database row to a CodeSymbol object."""

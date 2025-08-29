@@ -54,7 +54,7 @@ index aa13227..6fc6fc6 100644
 """
 
 
-def test_parse_diff_string_empty_diff():
+def test_parse_diff_string_empty_diff() -> None:
     """
     Test parsing an empty diff string.
     """
@@ -62,7 +62,7 @@ def test_parse_diff_string_empty_diff():
     assert parsed_diff is None
 
 
-def test_parse_diff_string_github_diff():
+def test_parse_diff_string_git_diff() -> None:
     """
     Test parsing a real-world GitHub diff with multiple files and hunks.
     """

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel
 
 
@@ -7,8 +5,8 @@ class DiffLine(BaseModel):
     """Represents a single line in a diff hunk."""
 
     line_type: str
-    source_line_no: Optional[int] = None
-    target_line_no: Optional[int] = None
+    source_line_no: int | None = None
+    target_line_no: int | None = None
     value: str
 
 
@@ -20,7 +18,7 @@ class DiffHunk(BaseModel):
     target_start: int
     target_length: int
     heading: str
-    lines: List[DiffLine]
+    lines: list[DiffLine]
 
     @property
     def llm_repr(self) -> str:

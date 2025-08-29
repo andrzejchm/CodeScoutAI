@@ -1,6 +1,6 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, override
 
-from langchain_core.tools import BaseTool, tool
+from langchain_core.tools import BaseTool, tool  # pyright: ignore[reportUnknownVariableType]
 
 from core.interfaces.langchain_review_tool import LangChainReviewTool
 from core.models.code_diff import CodeDiff
@@ -9,10 +9,11 @@ from core.models.code_diff import CodeDiff
 class FileContentTool(LangChainReviewTool):
     """Tool that allows LLM to access full file content during code review."""
 
-    def __init__(self):
-        self.file_content_map = {}
+    def __init__(self) -> None:
+        self.file_content_map: dict[str, str] = {}
 
-    def get_tool(self, diffs: List[CodeDiff]) -> Optional[BaseTool]:
+    @override
+    def get_tool(self, diffs: list[CodeDiff]) -> BaseTool | None:
         """Create file content access tool configured for the given diffs."""
         # Build file content map from diffs
         self.file_content_map = {

@@ -1,10 +1,12 @@
 import json
 import re
-from typing import List, Optional
+from typing import Any
 
 from langchain_core.language_models import BaseLanguageModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.tools import BaseTool
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import create_react_agent  # pyright: ignore[reportUnknownVariableType]
 
 from cli.cli_utils import echo_debug
 from core.models.code_diff import CodeDiff
@@ -24,18 +26,18 @@ class BasicReviewChain:
         self,
         config: ReviewConfig,
     ):
-        self.config = config
+        self.config: ReviewConfig = config
 
     def get_chain_name(self) -> str:
         return "Basic review"
 
     def review(
         self,
-        diffs: List[CodeDiff],
-        llm: BaseLanguageModel,
+        diffs: list[CodeDiff],
+        llm: BaseLanguageModel[Any],
     ) -> ReviewResult:
-        findings: List[ReviewFinding] = []
-        file_path_to_diff = {diff.file_path: diff for diff in diffs}
+        findings: list[ReviewFinding] = []
+        file_path_to_diff: dict[str, CodeDiff] = {diff.file_path: diff for diff in diffs}
 
         response = self._invoke_llm(diffs, llm)
         if response:
@@ -47,13 +49,13 @@ class BasicReviewChain:
             usage_metadata=response.usage_metadata if response else None,
         )
 
-    def _invoke_llm(self, diffs: List[CodeDiff], llm: BaseLanguageModel) -> Optional[AIMessage]:
+    def _invoke_llm(self, diffs: list[CodeDiff], llm: BaseLanguageModel[Any]) -> AIMessage | None:
         """Invoke the LLM with the structured code diffs using an agent executor."""
 
         tools = self._get_tools(diffs)
         system_message_content = self._get_system_message()
 
-        agent = create_react_agent(model=llm, tools=tools)
+        agent: CompiledStateGraph = create_react_agent(model=llm, tools=tools)  # pyright: ignore[reportMissingTypeArgument, reportUnknownVariableType]
 
         echo_debug(f"Executing agent with tools: {[tool.name for tool in tools]}")
 
@@ -63,7 +65,7 @@ class BasicReviewChain:
         echo_debug(f"\ndiff message:\n{diff_contents}")
         echo_debug("======================================")
         # noinspection PyTypeChecker
-        result = agent.invoke(
+        result: dict[str, Any] = agent.invoke(
             {
                 "messages": [
                     SystemMessage(content=system_message_content),
@@ -76,16 +78,16 @@ class BasicReviewChain:
         echo_debug(f"Agent response: {last_response}")
         return last_response
 
-    def _get_tools(self, diffs: List[CodeDiff]) -> list:
-        tools = []
+    def _get_tools(self, diffs: list[CodeDiff]) -> list[BaseTool]:
+        tools: list[BaseTool] = []
         for tool_instance in self.config.langchain_tools:
             tool = tool_instance.get_tool(diffs)
             if tool:
                 tools.append(tool)
         return tools
 
-    def _extract_content_from_result(self, result: dict) -> Optional[AIMessage]:
-        result_messages = result.get("messages")
+    def _extract_content_from_result(self, result: dict[str, Any]) -> AIMessage | None:
+        result_messages: list[BaseMessage] | None = result.get("messages")
         if isinstance(result_messages, list) and result_messages:
             last_message = result_messages[-1]
             if isinstance(last_message, AIMessage):
@@ -95,13 +97,13 @@ class BasicReviewChain:
     def _process_llm_response(
         self,
         response_message: AIMessage,
-        file_path_to_diff: dict,
-    ) -> List[ReviewFinding]:
+        file_path_to_diff: dict[str, CodeDiff],
+    ) -> list[ReviewFinding]:
         """Process the LLM response and extract findings."""
-        findings = []
+        findings: list[ReviewFinding] = []
         try:
-            json_str = self._extract_json_from_response(str(response_message.content))
-            parsed_findings_data = json.loads(json_str)
+            json_str = self._extract_json_from_response(response_message.content)
+            parsed_findings_data: Any = json.loads(json_str)
 
             if isinstance(parsed_findings_data, list):
                 findings = self._create_findings_from_data(parsed_findings_data, file_path_to_diff)
@@ -122,8 +124,9 @@ class BasicReviewChain:
 
         return findings
 
-    def _extract_json_from_response(self, text: str) -> str:
+    def _extract_json_from_response(self, content: str | list[str | dict[Any, Any]]) -> str:
         """Extracts a JSON object or array from a string, stripping makrdown code blocks."""
+        text = str(content) if isinstance(content, str) else json.dumps(content)
         match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
         if match:
             return match.group(1).strip()
@@ -134,9 +137,11 @@ class BasicReviewChain:
             return text[json_start : json_end + 1]
         return text
 
-    def _create_findings_from_data(self, findings_data: list, file_path_to_diff: dict) -> List[ReviewFinding]:
+    def _create_findings_from_data(
+        self, findings_data: list[dict[str, Any]], file_path_to_diff: dict[str, CodeDiff]
+    ) -> list[ReviewFinding]:
         """Create ReviewFinding objects from parsed JSON data."""
-        findings = []
+        findings: list[ReviewFinding] = []
         for finding_data in findings_data:
             try:
                 finding = self._create_single_finding(finding_data, file_path_to_diff)
@@ -147,10 +152,12 @@ class BasicReviewChain:
                 )
         return findings
 
-    def _create_single_finding(self, finding_data: dict, file_path_to_diff: dict) -> ReviewFinding:
+    def _create_single_finding(
+        self, finding_data: dict[str, Any], file_path_to_diff: dict[str, CodeDiff]
+    ) -> ReviewFinding:
         """Create a single ReviewFinding from finding data."""
-        file_path = finding_data.get("file_path", "N/A")
-        line_number = finding_data.get("line_number")
+        file_path: str = finding_data.get("file_path", "N/A") or ""
+        line_number: int | None = finding_data.get("line_number")
 
         code_excerpt, start_line, end_line = self._extract_code_excerpt(file_path, line_number, file_path_to_diff)
 
@@ -159,7 +166,7 @@ class BasicReviewChain:
             category=Category(finding_data.get("category", "best_practices")),
             file_path=file_path,
             line_number=line_number,
-            message=finding_data.get("message", "No message provided."),
+            message=finding_data.get("message", "No message provided.") or "",
             suggestion=finding_data.get("suggestion"),
             tool_name=self.get_chain_name(),
             code_excerpt=code_excerpt,
@@ -167,11 +174,16 @@ class BasicReviewChain:
             excerpt_end_line=end_line,
         )
 
-    def _extract_code_excerpt(self, file_path: str, line_number: Optional[int], file_path_to_diff: dict):
+    def _extract_code_excerpt(
+        self,
+        file_path: str,
+        line_number: int | None,
+        file_path_to_diff: dict[str, CodeDiff],
+    ) -> tuple[str | None, int | None, int | None]:
         if not (file_path in file_path_to_diff and self.config.show_code_excerpts and line_number):
             return None, None, None
 
-        diff_obj = file_path_to_diff[file_path]
+        diff_obj: CodeDiff = file_path_to_diff[file_path]
         if not diff_obj.current_file_content:
             return None, None, None
 

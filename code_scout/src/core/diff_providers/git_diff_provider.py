@@ -1,7 +1,8 @@
 import os
-from typing import List, Optional
+from typing import Any, override
 
 import git
+from git import Diff, DiffIndex
 from git.exc import GitCommandError
 
 from cli.cli_utils import echo_debug, echo_warning
@@ -15,6 +16,11 @@ PREVIEW_LENGTH = 200
 
 
 class GitDiffProvider(DiffProvider):
+    repo_path: str
+    source: str
+    target: str
+    staged: bool
+
     def __init__(
         self,
         repo_path: str,
@@ -31,11 +37,12 @@ class GitDiffProvider(DiffProvider):
         if not repo_path:
             raise ValueError("Repository path cannot be empty.")
 
-    def get_diff(self) -> List[CodeDiff]:
+    @override
+    def get_diff(self) -> list[CodeDiff]:
         repo = git.Repo(path=self.repo_path)
-        diff_index = self._get_diff_index(repo)
+        diff_index: DiffIndex[Diff] = self._get_diff_index(repo)
 
-        diff_list = []
+        diff_list: list[CodeDiff] = []
         for diff_item in diff_index:
             diff_content = self._get_diff_content(diff_item)
             parsed_diff = parse_diff_string(diff_content, filename=self.target or self.source)
@@ -63,12 +70,12 @@ class GitDiffProvider(DiffProvider):
 
         return diff_list
 
-    def _get_diff_index(self, repo: git.Repo):
+    def _get_diff_index(self, repo: git.Repo) -> DiffIndex[Diff]:
         if self.staged:
             return repo.index.diff("HEAD", create_patch=True)
         return repo.commit(self.source).diff(self.target, create_patch=True)
 
-    def _get_diff_content(self, diff_item) -> str:
+    def _get_diff_content(self, diff_item: Diff) -> str:
         if hasattr(diff_item, "diff") and diff_item.diff:
             return (
                 diff_item.diff.decode("utf-8", errors="replace")
@@ -88,7 +95,7 @@ class GitDiffProvider(DiffProvider):
             return "modified"
         return "unknown"
 
-    def _get_file_content(self, repo: git.Repo, file_path: str, change_type: str) -> Optional[str]:
+    def _get_file_content(self, repo: git.Repo, file_path: str, change_type: str) -> str | None:
         """
         Get file content from the local Git repository.
 
@@ -124,14 +131,14 @@ class GitDiffProvider(DiffProvider):
             echo_warning(f"Failed to read file content for {file_path}: {e}")
             return None
 
-    def _read_file_content(self, repo: git.Repo, file_path: str) -> Optional[str]:
+    def _read_file_content(self, repo: git.Repo, file_path: str) -> str | None:
         """Helper method to read file content from either working directory or Git."""
         if self.staged:
             return self._read_staged_file_content(file_path)
         else:
             return self._read_committed_file_content(repo, file_path)
 
-    def _read_staged_file_content(self, file_path: str) -> Optional[str]:
+    def _read_staged_file_content(self, file_path: str) -> str | None:
         """Read file content from working directory for staged files."""
         full_path = os.path.join(self.repo_path, file_path)
         if os.path.exists(full_path) and os.path.isfile(full_path):
@@ -139,12 +146,12 @@ class GitDiffProvider(DiffProvider):
                 return f.read()
         return None
 
-    def _read_committed_file_content(self, repo: git.Repo, file_path: str) -> Optional[str]:
+    def _read_committed_file_content(self, repo: git.Repo, file_path: str) -> str | None:
         """Read file content from Git commit for committed files."""
         try:
             target_commit = repo.commit(self.target)
-            file_content = target_commit.tree[file_path].data_stream.read()
-            return file_content.decode("utf-8", errors="replace")
+            file_content: Any = target_commit.tree[file_path].data_stream.read()  # pyright: ignore[reportUnknownVariableType]
+            return file_content.decode("utf-8", errors="replace")  # pyright: ignore[reportUnknownVariableType]
         except (KeyError, GitCommandError):
             echo_warning(f"File not found in target commit: {file_path}")
             return None

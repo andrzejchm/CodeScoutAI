@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -15,7 +15,7 @@ def repo_owner_option() -> Any:
     )
 
 
-def repo_name_option() -> Any:
+def repo_name_option() -> str:
     return cli_option(
         param_decls=["--repo-name"],
         env_var_name="CODESCOUT_REPO_NAME",
@@ -25,7 +25,7 @@ def repo_name_option() -> Any:
     )
 
 
-def pr_number_option() -> Any:
+def pr_number_option() -> int:
     return cli_option(
         param_decls=["--pr-number"],
         env_var_name="CODESCOUT_PR_NUMBER",
@@ -35,7 +35,7 @@ def pr_number_option() -> Any:
     )
 
 
-def github_token_option() -> Any:
+def github_token_option() -> str:
     return cli_option(
         param_decls=["--github-token"],
         env_var_name="CODESCOUT_GITHUB_API_KEY",
@@ -48,14 +48,14 @@ def github_token_option() -> Any:
     )
 
 
-def env_file_option() -> Any:
-    def _env_file_callback(env_file_path: Optional[str]) -> Optional[str]:
+def env_file_option() -> str:
+    def _env_file_callback(env_file_path: str | None) -> str | None:
         """Callback to reload dotenv when custom env file is specified."""
         if env_file_path:
             echo_debug(f"Loading environment variables from {env_file_path}")
             from dotenv import load_dotenv
 
-            load_dotenv(dotenv_path=env_file_path, override=True)
+            _ = load_dotenv(dotenv_path=env_file_path, override=True)
         return env_file_path
 
     return typer.Option(
@@ -67,7 +67,7 @@ def env_file_option() -> Any:
     )
 
 
-def model_option() -> Any:
+def model_option() -> str:
     return typer.Option(
         default="openrouter/anthropic/claude-sonnet-4",
         envvar="CODESCOUT_MODEL",
@@ -78,7 +78,7 @@ def model_option() -> Any:
     )
 
 
-def openrouter_api_key_option() -> Any:
+def openrouter_api_key_option() -> str:
     return cli_option(
         param_decls=["--openrouter-api-key"],
         env_var_name="CODESCOUT_OPENROUTER_API_KEY",
@@ -89,7 +89,7 @@ def openrouter_api_key_option() -> Any:
     )
 
 
-def openai_api_key_option() -> Any:
+def openai_api_key_option() -> str:
     return cli_option(
         param_decls=["--openai-api-key"],
         env_var_name="CODESCOUT_OPENAI_API_KEY",
@@ -100,7 +100,7 @@ def openai_api_key_option() -> Any:
     )
 
 
-def claude_api_key_option() -> Any:
+def claude_api_key_option() -> str:
     return cli_option(
         param_decls=["--claude-api-key"],
         env_var_name="CODESCOUT_CLAUDE_API_KEY",
@@ -111,7 +111,7 @@ def claude_api_key_option() -> Any:
     )
 
 
-def repo_path_option(required: bool = False) -> Any:
+def repo_path_option(required: bool = False) -> str:
     return cli_option(
         param_decls=["--repo-path"],
         env_var_name="CODESCOUT_REPO_PATH",
@@ -122,7 +122,7 @@ def repo_path_option(required: bool = False) -> Any:
     )
 
 
-def code_paths_option() -> Any:
+def code_paths_option() -> list[str]:
     return cli_option(
         param_decls=["--code-path", "-p"],
         env_var_name="CODESCOUT_INDEX_CODE_PATHS",
@@ -132,7 +132,7 @@ def code_paths_option() -> Any:
     )
 
 
-def print_file_paths_option() -> Any:
+def print_file_paths_option() -> bool:
     return cli_option(
         param_decls=["--print-file-paths"],
         env_var_name="CODESCOUT_PRINT_FILE_PATHS",

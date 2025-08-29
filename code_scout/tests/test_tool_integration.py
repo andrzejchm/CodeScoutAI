@@ -1,32 +1,35 @@
 from typing import Any
 
 import pytest
-from langchain_core.language_models import BaseLanguageModel
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
+from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
 from core.utils.diff_parser import parse_diff_string
 
 
 class CustomFakeChatModel(FakeListChatModel):
-    def bind_tools(
+    def bind_tools(  # pyright: ignore[reportImplicitOverride]
         self,
-        tools,  # noqa ARG002
+        tools,  # pyright: ignore[reportMissingParameterType, reportUnknownParameterType]  # pyright: ignore[reportMissingParameterType] # noqa: ANN001, ARG002
         *,
-        tool_choice=None,  # noqa ARG002
-        **kwargs: Any,  # noqa ARG002
-    ):
+        _tool_choice: Any = None,
+        **_kwargs: Any,
+    ) -> "CustomFakeChatModel":
         # This is a dummy implementation for testing purposes
+
         # It should return a runnable, but for this test, we just need to avoid NotImplementedError
+
         return self
 
 
 @pytest.fixture
-def mock_llm() -> BaseLanguageModel:
+def mock_llm() -> CustomFakeChatModel:
     """Mock LLM that can simulate tool calls and return JSON."""
+
     responses = [
         """Final Answer: [
           {
@@ -43,7 +46,7 @@ def mock_llm() -> BaseLanguageModel:
 
 
 @pytest.fixture
-def mock_llm_no_tools():
+def mock_llm_no_tools() -> CustomFakeChatModel:
     """Mock LLM that does not use tools, but still goes through the agent path."""
     responses = [
         """Final Answer: [
@@ -99,7 +102,7 @@ rename to code_scout/src/cli/cli_formatter_2.py
     )
 
 
-def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
+def test_basic_review_chain_with_tools(mock_llm: CustomFakeChatModel, sample_code_diff: CodeDiff) -> None:
     """Test BasicReviewChain with LangChain tools enabled."""
     config = ReviewConfig(
         langchain_tools=[FileContentTool()],
@@ -107,13 +110,14 @@ def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
     )
     chain = BasicReviewChain(config)
 
-    result = chain.review([sample_code_diff], mock_llm)
+    result: ReviewResult = chain.review([sample_code_diff], mock_llm)
+
     findings = result.findings
 
     assert result
     assert findings
     assert len(findings) == 1
-    assert len(findings) == 1
+
     assert findings[0].file_path == "tests/temp_test_file.py"
     assert findings[0].message == "Consider adding type hints for better readability and maintainability."
     assert findings[0].severity.value == "suggestion"
@@ -125,18 +129,24 @@ def test_basic_review_chain_with_tools(mock_llm, sample_code_diff):
     assert len(findings) > 0  # This confirms the LLM was called and processed
 
 
-def test_basic_review_chain_without_tools(mock_llm_no_tools, sample_code_diff):
+def test_basic_review_chain_without_tools(mock_llm_no_tools: CustomFakeChatModel, sample_code_diff: CodeDiff) -> None:
     """Test BasicReviewChain without LangChain tools enabled (agent still used)."""
+
+    # The type of `responses` is `list[str]`, so `replace` is a valid method on its elements.
+
     mock_llm_no_tools.responses[0] = mock_llm_no_tools.responses[0].replace(
         '"severity": "suggestion",',
         '"severity": "suggestion", "file_path": "tests/temp_test_file.py",',
     )
+
     config = ReviewConfig(
         langchain_tools=[],  # No tools provided
     )
+
     chain = BasicReviewChain(config)
 
-    result = chain.review([sample_code_diff], mock_llm_no_tools)
+    result: ReviewResult = chain.review([sample_code_diff], mock_llm_no_tools)
+
     findings = result.findings
 
     assert result

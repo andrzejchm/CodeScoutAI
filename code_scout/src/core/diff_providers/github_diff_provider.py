@@ -1,4 +1,4 @@
-from typing import List
+from typing import override
 
 from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
@@ -8,6 +8,11 @@ from core.utils.diff_parser import parse_github_file
 
 
 class GitHubDiffProvider(DiffProvider):
+    repo_owner: str
+    repo_name: str
+    pr_number: int
+    github_service: GitHubService
+
     def __init__(
         self,
         repo_owner: str,
@@ -29,10 +34,11 @@ class GitHubDiffProvider(DiffProvider):
         self.pr_number = pr_number
         self.github_service = GitHubService(github_token, repo_owner, repo_name)
 
-    def get_diff(self) -> List[CodeDiff]:
+    @override
+    def get_diff(self) -> list[CodeDiff]:
         pull = self.github_service.get_pull_request(self.pr_number)
 
-        code_diffs: List[CodeDiff] = []
+        code_diffs: list[CodeDiff] = []
         for file_obj in self.github_service.get_pull_request_files(pull):
             parsed_diff = parse_github_file(file_obj)
 

@@ -1,5 +1,5 @@
 import time
-from typing import List, Optional
+from typing import Any
 
 from langchain_core.language_models import BaseLanguageModel
 
@@ -22,13 +22,20 @@ class CodeReviewAgent:
     Orchestrates the entire review pipeline with configurable components.
     """
 
+    diff_provider: DiffProvider
+    llm_provider: LLMProvider
+    formatters: list[ReviewFormatter]
+    cli_context: CodeScoutContext
+    config: ReviewConfig
+    llm: BaseLanguageModel[Any]
+
     def __init__(
         self,
         diff_provider: DiffProvider,
         llm_provider: LLMProvider,
-        formatters: List[ReviewFormatter],
+        formatters: list[ReviewFormatter],
         cli_context: CodeScoutContext,
-        config: Optional[ReviewConfig] = None,
+        config: ReviewConfig | None = None,
     ):
         self.diff_provider = diff_provider
         self.llm_provider = llm_provider
@@ -45,9 +52,9 @@ class CodeReviewAgent:
             max_excerpt_lines=20,
         )
 
-        self.llm: BaseLanguageModel = self.llm_provider.get_llm(self.cli_context)
+        self.llm = self.llm_provider.get_llm(self.cli_context)
 
-    def review_code(self) -> Optional[ReviewResult]:
+    def review_code(self) -> ReviewResult | None:
         """
         Executes the code review process.
 
@@ -57,7 +64,7 @@ class CodeReviewAgent:
         start_time = time.time()
 
         with show_spinner(label="Initializing code diffs..."):
-            diffs: List[CodeDiff] = self.diff_provider.get_diff()
+            diffs: list[CodeDiff] = self.diff_provider.get_diff()
 
         if not diffs:
             echo_info("No code differences found to review.")
@@ -78,8 +85,8 @@ class CodeReviewAgent:
 
     def _execute_review_chain(
         self,
-        diffs: List[CodeDiff],
-    ) -> Optional[ReviewResult]:
+        diffs: list[CodeDiff],
+    ) -> ReviewResult | None:
         """Execute all enabled review chains."""
         chain = BasicReviewChain(config=self.config)
         try:
@@ -90,8 +97,9 @@ class CodeReviewAgent:
 
         except Exception as e:
             echo_error(f"Warning: Chain {chain.get_chain_name()} failed: {e}")
+            return None  # Explicitly return None on error
 
-    def _output_results(self, result: ReviewResult):
+    def _output_results(self, result: ReviewResult) -> None:
         """Format and output the review results."""
         found_formatter = False
         for formatter in self.formatters:

@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from .diff_hunk import DiffHunk
@@ -10,7 +8,7 @@ class ParsedDiff(BaseModel):
 
     source_file: str
     target_file: str
-    hunks: List[DiffHunk]
+    hunks: list[DiffHunk]
     is_added_file: bool
     is_removed_file: bool
     is_modified_file: bool

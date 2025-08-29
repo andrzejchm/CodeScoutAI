@@ -1,6 +1,7 @@
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Callable, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Never, TypeVar
 
 import typer
 from questionary import Choice, Style, select
@@ -14,7 +15,7 @@ T = TypeVar("T")
 err_console = Console(stderr=True, soft_wrap=True)
 
 
-def echo_debug(message: str):
+def echo_debug(message: str) -> None:
     """
     Echoes a debug message with a grayish color using typer.echo, only if debug mode is enabled.
     """
@@ -22,28 +23,28 @@ def echo_debug(message: str):
         typer.echo(typer.style(f"[DEBUG] {message}", fg=typer.colors.BRIGHT_BLACK))
 
 
-def echo_info(message: str):
+def echo_info(message: str) -> None:
     """
     Echoes an informational message with grayish color using typer.echo.
     """
     typer.echo(typer.style(message, fg=typer.colors.WHITE))
 
 
-def echo_warning(message: str):
+def echo_warning(message: str) -> None:
     """
     Echoes a warning message with a yellow color using typer.echo.
     """
     typer.echo(typer.style(message, fg=typer.colors.YELLOW))
 
 
-def echo_error(message: str):
+def echo_error(message: str) -> None:
     """
     Echoes an error message with a red color using typer.echo.
     """
     err_console.print(message)
 
 
-def select_option(message: str, choices: List[Tuple[str, T]]) -> Optional[T]:
+def select_option(message: str, choices: list[tuple[str, T]]) -> T | None:
     """
     Presents a selection prompt to the user with custom styling.
     Choices are provided as a list of (display_string, value) tuples.
@@ -77,9 +78,9 @@ def select_option(message: str, choices: List[Tuple[str, T]]) -> Optional[T]:
 
 def select_from_paginated_options(
     message: str,
-    fetch_page_func: Callable[[int, int], List[Tuple[str, T]]],
+    fetch_page_func: Callable[[int, int], list[tuple[str, T]]],
     per_page: int = 10,
-) -> Optional[T]:
+) -> T | None:
     """
     Presents a list of choices to the user with pagination, allowing them to load more.
 
@@ -94,7 +95,7 @@ def select_from_paginated_options(
     """
     page = 0
     all_options_loaded = False
-    all_fetched_options: List[Tuple[str, T]] = []
+    all_fetched_options: list[tuple[str, Any]] = []
 
     while True:
         with show_spinner(label=f"Fetching options (page {page + 1})"):
@@ -107,10 +108,11 @@ def select_from_paginated_options(
         elif not current_page_options:
             all_options_loaded = True
 
-        display_choices = list(current_page_options)
+        # Ensure display_choices can hold both T and "show_more"
+        display_choices: list[tuple[str, Any]] = list(current_page_options)
 
         if not all_options_loaded:
-            display_choices.append(("Show more...", "show_more"))  # type: ignore
+            display_choices.append(("Show more...", "show_more"))
 
         if not display_choices:
             echo_info("No more options available.")
@@ -126,7 +128,7 @@ def select_from_paginated_options(
 
 
 @contextmanager
-def show_spinner(label: str):
+def show_spinner(label: str) -> Generator[None, Any, None]:
     """
     Displays a spinner while a block of code is executing.
     """
@@ -141,14 +143,14 @@ def show_spinner(label: str):
 
 
 def get_option_or_env_var(  # noqa PLR013
-    param_decls: List[str],
-    option_value: Optional[Any],
+    param_decls: list[str],
+    option_value: Any | None,
     env_var_name: str,
-    prompt_message: Optional[str] = None,
+    prompt_message: str | None = None,
     required: bool = False,
     secure_input: bool = False,
     is_list: bool = False,
-) -> Optional[Any]:
+) -> Any | None:
     """
     Retrieves a value from a Typer option or an environment variable.
     If the value is missing and `required` is True, it prompts the user for input.
@@ -170,9 +172,9 @@ def get_option_or_env_var(  # noqa PLR013
         typer.Exit: If the value is required but not provided by the user.
     """
     if is_list and isinstance(option_value, list) and len(option_value) > 0:
-        return option_value
+        return option_value  # pyright: ignore[reportUnknownVariableType]
     if not is_list and option_value:
-        return option_value
+        return option_value  # pyright: ignore[reportUnknownVariableType]
     env_value = os.getenv(env_var_name)
 
     if env_value is not None:
@@ -201,13 +203,13 @@ def get_option_or_env_var(  # noqa PLR013
 
 
 def cli_option(  # noqa PLR013
-    param_decls: List[str],
+    param_decls: list[str],
     env_var_name: str = "",
-    prompt_message: Optional[str] = None,
+    prompt_message: str | None = None,
     required: bool = False,
     secure_input: bool = False,
-    help: Optional[str] = None,
-    default: Optional[Any] = None,
+    help: str | None = None,
+    default: Any | None = None,
     is_list: bool = False,
 ) -> Any:
     """
@@ -228,7 +230,7 @@ def cli_option(  # noqa PLR013
         A typer.Option object configured with the custom callback.
     """
 
-    def callback(value: Optional[Any]):
+    def callback(value: Any | None) -> Any:
         return get_option_or_env_var(
             param_decls=param_decls,
             option_value=value,
@@ -247,7 +249,7 @@ def cli_option(  # noqa PLR013
     )
 
 
-def handle_cli_exception(e: Exception, message: str = "An error occurred"):
+def handle_cli_exception(e: Exception, message: str = "An error occurred") -> Never:
     """
     Handles exceptions in CLI commands, raising the original exception if debug is enabled,
     otherwise exiting gracefully with a warning message, chaining the original exception.

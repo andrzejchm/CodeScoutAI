@@ -4,7 +4,9 @@ The queries are designed to be executed by the SymbolExtractor.
 """
 
 # A mapping from language identifiers to their specific queries.
-QUERIES = {
+from tree_sitter_language_pack import SupportedLanguage
+
+QUERIES: dict[SupportedLanguage, str] = {
     "python": r"""
         (class_definition name: (identifier) @class.name) @class.definition
         (function_definition name: (identifier) @function.name) @function.definition

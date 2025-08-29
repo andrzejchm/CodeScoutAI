@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -7,25 +7,25 @@ from pydantic import BaseModel
 class CodeSymbol(BaseModel):
     """Represents a single code symbol from the code_index table."""
 
-    id: Optional[int] = None
+    id: int | None = None
     name: str
     symbol_type: str  # 'function', 'class', 'method', 'variable', 'import'
     file_path: str
     start_line_number: int
-    start_column_number: Optional[int] = None
-    end_line_number: Optional[int] = None
-    end_column_number: Optional[int] = None
+    start_column_number: int | None = None
+    end_line_number: int | None = None
+    end_column_number: int | None = None
     language: str
-    signature: Optional[str] = None  # Function/method signature
-    docstring: Optional[str] = None  # Documentation string
-    parent_symbol: Optional[str] = None  # For methods/nested functions
-    scope: Optional[str] = None  # 'public', 'private', 'protected'
-    parameters: Optional[str] = None  # JSON array of parameter info
-    return_type: Optional[str] = None
+    signature: str | None = None  # Function/method signature
+    docstring: str | None = None  # Documentation string
+    parent_symbol: str | None = None  # For methods/nested functions
+    scope: str | None = None  # 'public', 'private', 'protected'
+    parameters: str | None = None  # JSON array of parameter info
+    return_type: str | None = None
     file_hash: str  # For change detection
-    source_code: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    source_code: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class CodeFile(BaseModel):
@@ -40,11 +40,11 @@ class CodeIndexQuery(BaseModel):
     """Represents a search query for code symbols."""
 
     text: str
-    symbol_type: Optional[str] = None
-    file_pattern: Optional[str] = None
+    symbol_type: str | None = None
+    file_pattern: str | None = None
     limit: int = 20
-    boost_paths: Optional[List[str]] = None
-    language: Optional[str] = None
+    boost_paths: list[str] | None = None
+    language: str | None = None
 
 
 class IndexResult(BaseModel):
@@ -54,7 +54,7 @@ class IndexResult(BaseModel):
     message: str
     symbols_indexed: int = 0
     files_processed: int = 0
-    errors: List[str] = []
+    errors: list[str] = []
 
 
 class UpdateResult(BaseModel):
@@ -65,7 +65,7 @@ class UpdateResult(BaseModel):
     symbols_updated: int = 0
     symbols_added: int = 0
     symbols_removed: int = 0
-    errors: List[str] = []
+    errors: list[str] = []
 
 
 class IndexStats(BaseModel):
@@ -73,6 +73,6 @@ class IndexStats(BaseModel):
 
     total_symbols: int = 0
     total_files: int = 0
-    symbols_by_type: dict = {}
-    symbols_by_language: dict = {}
-    last_updated: Optional[datetime] = None
+    symbols_by_type: dict[Any, Any] = {}
+    symbols_by_language: dict[Any, Any] = {}
+    last_updated: datetime | None = None

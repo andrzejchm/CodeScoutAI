@@ -21,11 +21,11 @@ tasks:
       - poetry run ruff format .
 
   lint:
-    desc: Lint code with ruff and pyright
+    desc: Lint code with ruff and basedpyright
     cmds:
       - poetry run ruff check --fix .
       - poetry run ruff check .
-      - pyright
+      - basedpyright
 
   ci:
     desc: Run CI checks

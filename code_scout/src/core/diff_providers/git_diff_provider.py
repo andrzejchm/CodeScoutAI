@@ -34,6 +34,8 @@ class GitDiffProvider(DiffProvider):
         self.staged = staged
         if not self.staged and source == target:
             raise ValueError("Source and target branches cannot be the same when not reviewing staged files.")
+        if self.staged and source and target:
+            echo_warning("Ignoring source and target branches when reviewing staged files.")
         if not repo_path:
             raise ValueError("Repository path cannot be empty.")
 
@@ -45,14 +47,16 @@ class GitDiffProvider(DiffProvider):
         diff_list: list[CodeDiff] = []
         for diff_item in diff_index:
             diff_content = self._get_diff_content(diff_item)
-            parsed_diff = parse_diff_string(diff_content, filename=self.target or self.source)
+            # Use a_path or b_path for the filename to ensure parse_diff_string gets a valid file path
+            # b_path is the new path, a_path is the old path
+            filename_for_parsing = diff_item.b_path if diff_item.b_path else diff_item.a_path
+            parsed_diff = parse_diff_string(diff_content, filename=filename_for_parsing)
 
             if parsed_diff:
                 change_type = self._map_parsed_diff_to_change_type(parsed_diff)
-                file_path = parsed_diff.target_file.split("\t")[0].replace("b/", "", 1)
-                old_file_path = (
-                    parsed_diff.source_file.split("\t")[0].replace("a/", "", 1) if parsed_diff.is_renamed_file else None
-                )
+                # parsed_diff already contains the correct file paths without needing replacement
+                file_path = parsed_diff.target_file
+                old_file_path = parsed_diff.source_file if parsed_diff.is_renamed_file else None
 
                 current_file_content = self._get_file_content(repo, file_path, change_type)
 
@@ -76,7 +80,8 @@ class GitDiffProvider(DiffProvider):
         return repo.commit(self.source).diff(self.target, create_patch=True)
 
     def _get_diff_content(self, diff_item: Diff) -> str:
-        if hasattr(diff_item, "diff") and diff_item.diff:
+        # Ensure diff_item.diff is not None before decoding
+        if diff_item.diff is not None:
             return (
                 diff_item.diff.decode("utf-8", errors="replace")
                 if isinstance(diff_item.diff, bytes)

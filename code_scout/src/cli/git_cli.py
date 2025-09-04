@@ -1,12 +1,15 @@
 import typer
+from dotenv import load_dotenv
+from typer.testing import CliRunner
 
+from cli.cli_config import cli_config
 from cli.cli_formatter import CliFormatter
 from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.git_diff_provider import GitDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
 from src.cli.cli_options import repo_path_option, source_option, staged_option, target_option
-from src.cli.cli_utils import handle_cli_exception  # Import the new utility function
+from src.cli.cli_utils import echo_debug, handle_cli_exception
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -26,7 +29,15 @@ def review(
     Reviews code changes in a Git repository.
     """
     code_scout_context: CodeScoutContext = ctx.obj
-
+    echo_debug(
+        f"""
+        Reviewing Git repository.
+        repo_path:\t{repo_path}
+        source:\t\t{source}
+        target:\t\t{target}
+        staged:\t\t{staged}
+""",
+    )
     try:
         git_diff_provider = GitDiffProvider(
             repo_path=repo_path,
@@ -47,3 +58,23 @@ def review(
         _ = review_agent.review_code()
     except Exception as e:
         handle_cli_exception(e, message="Error reviewing Git repository")
+
+
+if __name__ == "__main__":
+    # The load_dotenv call here is for testing purposes when running github_cli.py directly.
+    # In a real CLI execution via main.py, dotenv is loaded by main.py's callback.
+    _ = load_dotenv("../../.codescout.env")  # Assign to _ to explicitly ignore the result
+    cli_config.is_debug = True
+    runner = CliRunner()
+
+    from cli.main import app
+
+    # Example usage of review-pr command
+    result = runner.invoke(
+        app,
+        ["git", "review"],
+        catch_exceptions=False,
+        color=True,
+    )
+    print(f"Err: {result.stderr}")
+    print(f"stdout: {result.stdout}")

@@ -118,7 +118,6 @@ def repo_path_option(required: bool = False) -> str:
         prompt_message="Enter path to the Git repository",
         required=required,
         help="Path to the Git repository",
-        default=".",
     )
 
 
@@ -137,6 +136,7 @@ def print_file_paths_option() -> bool:
         param_decls=["--print-file-paths"],
         env_var_name="CODESCOUT_PRINT_FILE_PATHS",
         prompt_message="Print file paths being indexed",
+        is_bool=True,
     )
 
 
@@ -166,11 +166,12 @@ def target_option() -> Any:
     )
 
 
-def staged_option() -> Any:
-    return typer.Option(
-        default=False,
-        envvar="CODESCOUT_STAGED",
+def staged_option() -> bool:
+    return cli_option(
+        param_decls=["--staged"],
+        env_var_name="CODESCOUT_STAGED",
         help="Review only staged files",
+        is_bool=True,
     )
 
 

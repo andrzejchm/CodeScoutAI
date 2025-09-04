@@ -150,6 +150,7 @@ def get_option_or_env_var(  # noqa PLR013
     required: bool = False,
     secure_input: bool = False,
     is_list: bool = False,
+    is_bool: bool = False,
 ) -> Any | None:
     """
     Retrieves a value from a Typer option or an environment variable.
@@ -171,6 +172,8 @@ def get_option_or_env_var(  # noqa PLR013
     Raises:
         typer.Exit: If the value is required but not provided by the user.
     """
+    if is_bool and isinstance(option_value, bool):
+        return option_value
     if is_list and isinstance(option_value, list) and len(option_value) > 0:
         return option_value  # pyright: ignore[reportUnknownVariableType]
     if not is_list and option_value:
@@ -178,6 +181,8 @@ def get_option_or_env_var(  # noqa PLR013
     env_value = os.getenv(env_var_name)
 
     if env_value is not None:
+        if is_bool:
+            return env_value.lower() in ("1", "true", "yes", "on")
         if is_list:
             return [item.strip() for item in env_value.split(",") if item.strip()]
         return env_value
@@ -209,8 +214,8 @@ def cli_option(  # noqa PLR013
     required: bool = False,
     secure_input: bool = False,
     help: str | None = None,
-    default: Any | None = None,
     is_list: bool = False,
+    is_bool: bool = False,
 ) -> Any:
     """
     A custom Typer Option factory that integrates environment variable lookup
@@ -239,10 +244,11 @@ def cli_option(  # noqa PLR013
             required=required,
             secure_input=secure_input,
             is_list=is_list,
+            is_bool=is_bool,
         )
 
     return typer.Option(
-        default if default is not None else [] if is_list else None,
+        [] if is_list else None,
         *param_decls,
         callback=callback,
         help=help,

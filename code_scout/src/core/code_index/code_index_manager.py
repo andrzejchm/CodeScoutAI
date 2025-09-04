@@ -179,9 +179,9 @@ class CodeIndexManager:
                 continue
 
             gitignore_path = repo_path_obj / ".gitignore"
-            matches: Callable[..., bool] | None = (
+            matches: Callable[..., bool] | None = (  # pyright: ignore[reportUnknownVariableType]
                 parse_gitignore(gitignore_path, repo_path_obj.as_posix()) if gitignore_path.exists() else None
-            )  # pyright: ignore[reportUnknownVariableType]
+            )
 
             for file_path_str in self._scan_files(code_path, matches):
                 relative_file_path = str(Path(file_path_str).relative_to(repo_path_obj))

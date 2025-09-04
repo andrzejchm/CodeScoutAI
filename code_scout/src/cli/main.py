@@ -17,7 +17,7 @@ from src.cli.cli_options import (
     openai_api_key_option,
     openrouter_api_key_option,
 )
-from src.cli.cli_utils import handle_cli_exception  # Import the new utility function
+from src.cli.cli_utils import echo_debug, handle_cli_exception
 
 # Load default .env file at module import time
 _ = load_dotenv()
@@ -52,6 +52,7 @@ def main(  # noqa: PLR0913
     Code Scout CLI for automated code reviews.
     """
 
+    echo_debug(f"loaded dotenv from: {_env_file}")
     # Set the debug flag in the centralized config
     cli_config.is_debug = debug or os.getenv("CODESCOUT_DEBUG", "false").lower() == "true"
 

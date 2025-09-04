@@ -5,7 +5,7 @@ import git
 from git import Diff, DiffIndex
 from git.exc import GitCommandError
 
-from cli.cli_utils import echo_debug, echo_warning
+from cli.cli_utils import echo_warning
 from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
 from core.models.parsed_diff import ParsedDiff
@@ -49,7 +49,9 @@ class GitDiffProvider(DiffProvider):
             diff_content = self._get_diff_content(diff_item)
             # Use a_path or b_path for the filename to ensure parse_diff_string gets a valid file path
             # b_path is the new path, a_path is the old path
-            filename_for_parsing = diff_item.b_path if diff_item.b_path else diff_item.a_path
+            filename_for_parsing = (
+                diff_item.b_path if diff_item.b_path else (diff_item.a_path if diff_item.a_path else "")
+            )
             parsed_diff = parse_diff_string(diff_content, filename=filename_for_parsing)
 
             if parsed_diff:
@@ -81,13 +83,20 @@ class GitDiffProvider(DiffProvider):
 
     def _get_diff_content(self, diff_item: Diff) -> str:
         # Ensure diff_item.diff is not None before decoding
+        a_path = diff_item.a_path if diff_item.a_path else "/dev/null"
+        b_path = diff_item.b_path if diff_item.b_path else "/dev/null"
+
+        diff_header = f"--- a/{a_path}\n+++ b/{b_path}\n"
+
+        diff_content_str = ""
         if diff_item.diff is not None:
-            return (
+            diff_content_str = (
                 diff_item.diff.decode("utf-8", errors="replace")
                 if isinstance(diff_item.diff, bytes)
                 else str(diff_item.diff)
             )
-        return ""
+
+        return diff_header + diff_content_str
 
     def _map_parsed_diff_to_change_type(self, parsed_diff: ParsedDiff) -> str:
         if parsed_diff.is_added_file:
@@ -123,11 +132,9 @@ class GitDiffProvider(DiffProvider):
 
             # Check if content is binary or too large
             if CodeExcerptExtractor.is_binary_content(content):
-                echo_debug(f"Skipping binary file: {file_path}")
                 return None
 
             if CodeExcerptExtractor.is_file_too_large(content):
-                echo_debug(f"Skipping large file: {file_path}")
                 return None
 
             return content
@@ -155,8 +162,8 @@ class GitDiffProvider(DiffProvider):
         """Read file content from Git commit for committed files."""
         try:
             target_commit = repo.commit(self.target)
-            file_content: Any = target_commit.tree[file_path].data_stream.read()  # pyright: ignore[reportUnknownVariableType]
-            return file_content.decode("utf-8", errors="replace")  # pyright: ignore[reportUnknownVariableType]
+            file_content: Any = target_commit.tree[file_path].data_stream.read()
+            return file_content.decode("utf-8", errors="replace")
         except (KeyError, GitCommandError):
             echo_warning(f"File not found in target commit: {file_path}")
             return None

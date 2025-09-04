@@ -65,7 +65,9 @@ def mock_github_file_renamed():
     mock_file = MagicMock(spec=File)
     mock_file.filename = "src/renamed_file_new.py"
     mock_file.previous_filename = "src/renamed_file_old.py"
-    mock_file.patch = "--- a/src/renamed_file_old.py\n+++ b/src/renamed_file_new.py\n@@ -1,1 +1,1 @@\n-content\n+content\n"
+    mock_file.patch = (
+        "--- a/src/renamed_file_old.py\n+++ b/src/renamed_file_new.py\n@@ -1,1 +1,1 @@\n-content\n+content\n"
+    )
     mock_file.status = "renamed"
     mock_file.additions = 0
     mock_file.deletions = 0
@@ -88,9 +90,7 @@ class TestGitHubDiffProvider:
         with pytest.raises(ValueError, match="GitHub token cannot be empty."):
             GitHubDiffProvider(repo_owner=self.OWNER, repo_name=self.REPO, pr_number=self.PR_NUMBER, github_token="")
 
-    def test_get_diff_modified_file(
-        self, mock_github_service, mock_github_pull_request, mock_github_file_modified
-    ):
+    def test_get_diff_modified_file(self, mock_github_service, mock_github_pull_request, mock_github_file_modified):
         mock_github_service.get_pull_request.return_value = mock_github_pull_request
         mock_github_service.get_pull_request_files.return_value = [mock_github_file_modified]
         mock_github_service.get_file_content.return_value = "old\nnew\nanother\n"
@@ -167,4 +167,3 @@ class TestGitHubDiffProvider:
 
         assert len(diffs) == 0
         mock_parse_github_file.assert_called_once()
-

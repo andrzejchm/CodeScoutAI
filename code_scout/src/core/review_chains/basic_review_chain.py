@@ -62,8 +62,6 @@ class BasicReviewChain:
         diff_contents = f"{'\n'.join([d.llm_repr for d in diffs])}"
         echo_debug(f"system message:\n{system_message_content}")
         echo_debug("======================================")
-        echo_debug(f"\ndiff message:\n{diff_contents}")
-        echo_debug("======================================")
         # noinspection PyTypeChecker
         result: dict[str, Any] = agent.invoke(
             {

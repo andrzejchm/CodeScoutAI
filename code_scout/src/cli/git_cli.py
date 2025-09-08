@@ -11,13 +11,13 @@ from core.services.code_review_agent import CodeReviewAgent
 from src.cli.cli_options import repo_path_option, source_option, staged_option, target_option
 from src.cli.cli_utils import echo_debug, handle_cli_exception
 
-app = typer.Typer(
+git_app = typer.Typer(
     no_args_is_help=True,
     help="Commands for reviewing local Git repositories.",
 )
 
 
-@app.command()
+@git_app.command()
 def review(
     ctx: typer.Context,
     repo_path: str = repo_path_option(),
@@ -66,7 +66,6 @@ if __name__ == "__main__":
     _ = load_dotenv("../../.codescout.env")  # Assign to _ to explicitly ignore the result
     cli_config.is_debug = True
     runner = CliRunner()
-
     from cli.main import app
 
     # Example usage of review-pr command

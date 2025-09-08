@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from cli.cli_config import cli_config
 from cli.code_scout_context import CodeScoutContext
-from cli.git_cli import app as git_app
+from cli.git_cli import git_app as git_app
 from cli.github_cli import app as github_app
 from core.llm_providers.langchain_provider import LangChainProvider
 from src.cli.cli_options import (

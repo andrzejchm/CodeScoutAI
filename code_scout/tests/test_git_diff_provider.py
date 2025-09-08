@@ -1,3 +1,5 @@
+from collections.abc import Generator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,7 +14,7 @@ from core.models.code_diff import CodeDiff
 
 # --- Fixtures for GitDiffProvider tests ---
 @pytest.fixture
-def mock_git_repo():
+def mock_git_repo() -> Generator[MagicMock, Any, Any]:
     with patch("git.Repo") as mock_repo_class:
         mock_repo = MagicMock(spec=Repo)
         mock_repo_class.return_value = mock_repo
@@ -20,7 +22,7 @@ def mock_git_repo():
 
 
 @pytest.fixture
-def mock_diff_item_modified():
+def mock_diff_item_modified() -> MagicMock:
     mock_diff = MagicMock(spec=Diff)
     mock_diff.a_path = "path/to/file.py"
     mock_diff.b_path = "path/to/file.py"
@@ -32,7 +34,7 @@ def mock_diff_item_modified():
 
 
 @pytest.fixture
-def mock_diff_item_added():
+def mock_diff_item_added() -> MagicMock:
     mock_diff = MagicMock(spec=Diff)
     mock_diff.a_path = None
     mock_diff.b_path = "path/to/new_file.py"
@@ -42,7 +44,7 @@ def mock_diff_item_added():
 
 
 @pytest.fixture
-def mock_diff_item_deleted():
+def mock_diff_item_deleted() -> MagicMock:
     mock_diff = MagicMock(spec=Diff)
     mock_diff.a_path = "path/to/old_file.py"
     mock_diff.b_path = None
@@ -52,7 +54,7 @@ def mock_diff_item_deleted():
 
 
 @pytest.fixture
-def mock_diff_item_renamed():
+def mock_diff_item_renamed() -> MagicMock:
     mock_diff = MagicMock(spec=Diff)
     mock_diff.a_path = "old/path/file.py"
     mock_diff.b_path = "new/path/file.py"
@@ -62,7 +64,7 @@ def mock_diff_item_renamed():
 
 
 @pytest.fixture
-def mock_code_excerpt_extractor():
+def mock_code_excerpt_extractor() -> Generator[MagicMock, Any, Any]:
     with patch("core.utils.code_excerpt_extractor.CodeExcerptExtractor") as mock_extractor:
         mock_extractor.is_binary_content.return_value = False
         mock_extractor.is_file_too_large.return_value = False
@@ -71,19 +73,19 @@ def mock_code_excerpt_extractor():
 
 # --- Tests for GitDiffProvider ---
 class TestGitDiffProvider:
-    REPO_PATH = "/tmp/test_repo"
+    REPO_PATH: str = "/tmp/test_repo"
 
-    def test_init_validation(self):
+    def test_init_validation(self) -> None:
         with pytest.raises(ValueError, match="Repository path cannot be empty."):
-            GitDiffProvider(repo_path="")
+            _ = GitDiffProvider(repo_path="")
         with pytest.raises(
             ValueError, match="Source and target branches cannot be the same when not reviewing staged files."
         ):
-            GitDiffProvider(repo_path=self.REPO_PATH, source="main", target="main", staged=False)
+            _ = GitDiffProvider(repo_path=self.REPO_PATH, source="main", target="main", staged=False)
 
     def test_get_diff_committed_modified_file(
-        self, mock_git_repo, mock_diff_item_modified, mock_code_excerpt_extractor
-    ):
+        self, mock_git_repo: MagicMock, mock_diff_item_modified: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         # Mock diff index
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_modified]
@@ -109,9 +111,12 @@ class TestGitDiffProvider:
         assert "new line" in code_diff.diff
         assert code_diff.current_file_content == "old line\nnew line\nanother new line\n"
         assert len(code_diff.hunks) == 1
+        assert code_diff.parsed_diff is not None
         assert code_diff.parsed_diff.is_modified_file is True
 
-    def test_get_diff_committed_added_file(self, mock_git_repo, mock_diff_item_added, mock_code_excerpt_extractor):
+    def test_get_diff_committed_added_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_added: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_added]
         mock_git_repo.commit.return_value.diff.return_value = mock_diff_index
@@ -134,9 +139,12 @@ class TestGitDiffProvider:
         assert "new file line 1" in code_diff.diff
         assert code_diff.current_file_content == "new file line 1\nnew file line 2\n"
         assert len(code_diff.hunks) == 1
+        assert code_diff.parsed_diff is not None
         assert code_diff.parsed_diff.is_added_file is True
 
-    def test_get_diff_committed_deleted_file(self, mock_git_repo, mock_diff_item_deleted, mock_code_excerpt_extractor):
+    def test_get_diff_committed_deleted_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_deleted: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_deleted]
         mock_git_repo.commit.return_value.diff.return_value = mock_diff_index
@@ -151,9 +159,12 @@ class TestGitDiffProvider:
         assert "old file line 1" in code_diff.diff
         assert code_diff.current_file_content is None  # Deleted files should have None content
         assert len(code_diff.hunks) == 1
+        assert code_diff.parsed_diff is not None
         assert code_diff.parsed_diff.is_removed_file is True
 
-    def test_get_diff_committed_renamed_file(self, mock_git_repo, mock_diff_item_renamed, mock_code_excerpt_extractor):
+    def test_get_diff_committed_renamed_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_renamed: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_renamed]
         mock_git_repo.commit.return_value.diff.return_value = mock_diff_index
@@ -177,9 +188,12 @@ class TestGitDiffProvider:
         assert "content" in code_diff.diff
         assert code_diff.current_file_content == "content\n"
         assert len(code_diff.hunks) == 0  # Renamed files with 100% similarity often have no hunks
+        assert code_diff.parsed_diff is not None
         assert code_diff.parsed_diff.is_renamed_file is True
 
-    def test_get_diff_staged_modified_file(self, mock_git_repo, mock_diff_item_modified, mock_code_excerpt_extractor):
+    def test_get_diff_staged_modified_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_modified: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_modified]
         mock_git_repo.index.diff.return_value = mock_diff_index
@@ -201,7 +215,9 @@ class TestGitDiffProvider:
             assert code_diff.change_type == "modified"
             assert code_diff.current_file_content == "old line\nnew line\nanother new line\n"
 
-    def test_get_diff_staged_added_file(self, mock_git_repo, mock_diff_item_added, mock_code_excerpt_extractor):
+    def test_get_diff_staged_added_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_added: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_added]
         mock_git_repo.index.diff.return_value = mock_diff_index
@@ -221,7 +237,9 @@ class TestGitDiffProvider:
             assert code_diff.change_type == "added"
             assert code_diff.current_file_content == "new file line 1\nnew file line 2\n"
 
-    def test_get_diff_staged_deleted_file(self, mock_git_repo, mock_diff_item_deleted, mock_code_excerpt_extractor):
+    def test_get_diff_staged_deleted_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_deleted: MagicMock, _mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_deleted]
         mock_git_repo.index.diff.return_value = mock_diff_index
@@ -237,7 +255,9 @@ class TestGitDiffProvider:
             assert code_diff.change_type == "deleted"
             assert code_diff.current_file_content is None
 
-    def test_get_diff_binary_file(self, mock_git_repo, mock_diff_item_modified, mock_code_excerpt_extractor):
+    def test_get_diff_binary_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_modified: MagicMock, mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_modified]
         mock_git_repo.commit.return_value.diff.return_value = mock_diff_index
@@ -259,7 +279,9 @@ class TestGitDiffProvider:
         code_diff = diffs[0]
         assert code_diff.current_file_content is None  # Binary files should have None content
 
-    def test_get_diff_large_file(self, mock_git_repo, mock_diff_item_modified, mock_code_excerpt_extractor):
+    def test_get_diff_large_file(
+        self, mock_git_repo: MagicMock, mock_diff_item_modified: MagicMock, mock_code_excerpt_extractor: MagicMock
+    ) -> None:
         mock_diff_index = MagicMock(spec=DiffIndex)
         mock_diff_index.__iter__.return_value = [mock_diff_item_modified]
         mock_git_repo.commit.return_value.diff.return_value = mock_diff_index

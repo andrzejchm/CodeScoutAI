@@ -8,8 +8,20 @@ from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.git_diff_provider import GitDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
-from src.cli.cli_options import repo_path_option, source_option, staged_option, target_option
+from core.tools.file_content_tool import FileContentTool
+from core.tools.search_code_index_tool import SearchCodeIndexTool
+from src.cli.cli_options import (
+    allowed_categories_option,
+    allowed_severities_option,
+    banned_categories_option,
+    banned_severities_option,
+    repo_path_option,
+    source_option,
+    staged_option,
+    target_option,
+)
 from src.cli.cli_utils import echo_debug, handle_cli_exception
+from src.core.models.review_config import ReviewConfig
 
 git_app = typer.Typer(
     no_args_is_help=True,
@@ -24,6 +36,10 @@ def review(
     source: str = source_option(),
     target: str = target_option(),
     staged: bool = staged_option(),
+    allowed_severities: list[str] = allowed_severities_option(),
+    banned_severities: list[str] = banned_severities_option(),
+    allowed_categories: list[str] = allowed_categories_option(),
+    banned_categories: list[str] = banned_categories_option(),
 ) -> None:
     """
     Reviews code changes in a Git repository.
@@ -48,11 +64,23 @@ def review(
 
         llm_provider = LangChainProvider()
 
+        review_config = ReviewConfig(
+            langchain_tools=[
+                FileContentTool(),
+                SearchCodeIndexTool(),
+            ],
+            allowed_severities=allowed_severities,
+            banned_severities=banned_severities,
+            allowed_categories=allowed_categories,
+            banned_categories=banned_categories,
+        )
+
         review_agent = CodeReviewAgent(
             diff_provider=git_diff_provider,
             llm_provider=llm_provider,
             formatters=[CliFormatter()],
             cli_context=code_scout_context,
+            config=review_config,
         )
 
         _ = review_agent.review_code()

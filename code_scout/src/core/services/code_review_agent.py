@@ -8,6 +8,7 @@ from core.interfaces.llm_provider import LLMProvider
 from core.interfaces.review_formatter import ReviewFormatter
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
+from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
 from core.tools.file_content_tool import FileContentTool
@@ -92,6 +93,8 @@ class CodeReviewAgent:
         try:
             with show_spinner(label=f"Running {chain.get_chain_name()}..."):
                 review_result = chain.review(diffs, self.llm)
+                if review_result and review_result.findings:
+                    review_result.findings = self._filter_findings(review_result.findings)
                 echo_info(f"Completed review: {chain.get_chain_name()}")
                 return review_result
 
@@ -109,3 +112,32 @@ class CodeReviewAgent:
             break
         if not found_formatter:
             echo_info(f"Review completed: {len(result.findings)} findings")
+
+    def _filter_findings(self, findings: list[ReviewFinding]) -> list[ReviewFinding]:
+        """
+        Filters review findings based on configured allowed/banned severities and categories.
+        """
+        filtered_findings = []
+        for finding in findings:
+            # Filter by severity
+            if self.config.allowed_severities:
+                allowed_severities_lower = [s.lower() for s in self.config.allowed_severities]
+                if finding.severity.value.lower() not in allowed_severities_lower:
+                    continue
+            if self.config.banned_severities:
+                banned_severities_lower = [s.lower() for s in self.config.banned_severities]
+                if finding.severity.value.lower() in banned_severities_lower:
+                    continue
+
+            # Filter by category
+            if self.config.allowed_categories:
+                allowed_categories_lower = [c.lower() for c in self.config.allowed_categories]
+                if finding.category.value.lower() not in allowed_categories_lower:
+                    continue
+            if self.config.banned_categories:
+                banned_categories_lower = [c.lower() for c in self.config.banned_categories]
+                if finding.category.value.lower() in banned_categories_lower:
+                    continue
+
+            filtered_findings.append(finding)
+        return filtered_findings

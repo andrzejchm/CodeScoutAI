@@ -7,8 +7,19 @@ from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.github_diff_provider import GitHubDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
+from core.tools.file_content_tool import FileContentTool
+from core.tools.search_code_index_tool import SearchCodeIndexTool
 from src.cli.cli_formatter import CliFormatter
-from src.cli.cli_options import github_token_option, pr_number_option, repo_name_option, repo_owner_option
+from src.cli.cli_options import (
+    allowed_categories_option,
+    allowed_severities_option,
+    banned_categories_option,
+    banned_severities_option,
+    github_token_option,
+    pr_number_option,
+    repo_name_option,
+    repo_owner_option,
+)
 from src.cli.cli_utils import (
     echo_info,
     echo_warning,
@@ -16,6 +27,7 @@ from src.cli.cli_utils import (
     select_from_paginated_options,
     select_option,
 )
+from src.core.models.review_config import ReviewConfig
 from src.core.services.github_service import GitHubService
 
 app = typer.Typer(
@@ -30,6 +42,10 @@ def _perform_review(
     repo_name: str,
     pr_number: int,
     github_token: str,
+    allowed_severities: list[str],
+    banned_severities: list[str],
+    allowed_categories: list[str],
+    banned_categories: list[str],
 ) -> None:
     """
     Private method to perform the actual code review logic.
@@ -45,11 +61,23 @@ def _perform_review(
             github_token=github_token,
         )
 
+        review_config = ReviewConfig(
+            langchain_tools=[
+                FileContentTool(),
+                SearchCodeIndexTool(),
+            ],
+            allowed_severities=allowed_severities,
+            banned_severities=banned_severities,
+            allowed_categories=allowed_categories,
+            banned_categories=banned_categories,
+        )
+
         review_agent = CodeReviewAgent(
             diff_provider=diff_provider,
             llm_provider=LangChainProvider(),
             formatters=[CliFormatter()],
             cli_context=code_scout_context,
+            config=review_config,
         )
 
         _ = review_agent.review_code()  # Assign to _ to explicitly ignore the result
@@ -67,11 +95,25 @@ def review_pr(
     repo_name: str = repo_name_option(),
     pr_number: int = pr_number_option(),
     github_token: str = github_token_option(),
+    allowed_severities: list[str] = allowed_severities_option(),
+    banned_severities: list[str] = banned_severities_option(),
+    allowed_categories: list[str] = allowed_categories_option(),
+    banned_categories: list[str] = banned_categories_option(),
 ) -> None:
     """
     Review a specific pull request from a GitHub repository.
     """
-    _perform_review(ctx, repo_owner, repo_name, pr_number, github_token)
+    _perform_review(
+        ctx,
+        repo_owner,
+        repo_name,
+        pr_number,
+        github_token,
+        allowed_severities,
+        banned_severities,
+        allowed_categories,
+        banned_categories,
+    )
 
 
 @app.command("interactive-review")
@@ -80,6 +122,10 @@ def interactive_review(
     repo_owner: str = repo_owner_option(),
     repo_name: str = repo_name_option(),
     github_token: str = github_token_option(),
+    allowed_severities: list[str] = allowed_severities_option(),
+    banned_severities: list[str] = banned_severities_option(),
+    allowed_categories: list[str] = allowed_categories_option(),
+    banned_categories: list[str] = banned_categories_option(),
 ) -> None:
     echo_info(message=f"Starting github interactive review for {repo_owner}/{repo_name}")
     try:
@@ -117,6 +163,10 @@ def interactive_review(
                 repo_name=repo_name,
                 pr_number=selected_pr_number,
                 github_token=github_token,
+                allowed_severities=allowed_severities,
+                banned_severities=banned_severities,
+                allowed_categories=allowed_categories,
+                banned_categories=banned_categories,
             )
         else:
             echo_warning(f"Invalid action selected: {selected_action}")

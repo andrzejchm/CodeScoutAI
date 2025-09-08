@@ -86,6 +86,8 @@ class BasicReviewChain:
 
     def _extract_content_from_result(self, result: dict[str, Any]) -> AIMessage | None:
         result_messages: list[BaseMessage] | None = result.get("messages")
+        # print only the type of message
+        echo_debug(f"Agent result messages: {[type(m).__name__ for m in result_messages] if result_messages else []}")
         if isinstance(result_messages, list) and result_messages:
             last_message = result_messages[-1]
             if isinstance(last_message, AIMessage):
@@ -213,12 +215,33 @@ class BasicReviewChain:
         severity_values = ", ".join([s.value for s in Severity])
         category_values = ", ".join([c.value for c in Category])
 
+        filter_prompt_sections: list[str] = []
+        if self.config.allowed_severities:
+            filter_prompt_sections.append(
+                f"Focus only on findings with the following severities: {', '.join(self.config.allowed_severities)}."
+            )
+        if self.config.banned_severities:
+            filter_prompt_sections.append(
+                f"Do not include findings with the following severities: {', '.join(self.config.banned_severities)}."
+            )
+        if self.config.allowed_categories:
+            filter_prompt_sections.append(
+                f"Focus only on findings with the following categories: {', '.join(self.config.allowed_categories)}."
+            )
+        if self.config.banned_categories:
+            filter_prompt_sections.append(
+                f"Do not include findings with the following categories: {', '.join(self.config.banned_categories)}."
+            )
+        filter_prompt_section = "\n".join(filter_prompt_sections)
+        if filter_prompt_section:
+            filter_prompt_section = f"\n{filter_prompt_section}\n"
+
         return f"""
 You are an expert code reviewer. Your role is to provide high-quality, actionable feedback.
 Analyze the provided code changes, which are given as a JSON array of file diffs.
 Each file diff contains a list of 'hunks', representing a block of changes.
 For each hunk, you will see the line numbers and the content of the changes.
-
+{filter_prompt_section}
 CRITICAL GUIDELINES:
 - Your response MUST be ONLY a valid JSON array of finding objects.
 - Each finding must correlate to a specific hunk.

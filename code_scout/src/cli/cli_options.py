@@ -181,3 +181,35 @@ def db_path_option() -> Any:
         env_var_name="CODESCOUT_DB_PATH",
         help="Path to the code index database file.",
     )
+
+
+def allowed_severities_option() -> list[str]:
+    return cli_option(
+        param_decls=["--allow-severity"],
+        help="A list of severities to include (e.g., critical, major).",
+        is_list=True,
+    )
+
+
+def banned_severities_option() -> list[str]:
+    return cli_option(
+        param_decls=["--ban-severity"],
+        help="A list of severities to exclude (e.g., critical, major).",
+        is_list=True,
+    )
+
+
+def allowed_categories_option() -> list[str]:
+    return cli_option(
+        param_decls=["--allow-category"],
+        help="A list of categories to include (e.g., security, performance).",
+        is_list=True,
+    )
+
+
+def banned_categories_option() -> list[str]:
+    return cli_option(
+        param_decls=["--ban-category"],
+        help="A list of categories to exclude (e.g., security, performance).",
+        is_list=True,
+    )

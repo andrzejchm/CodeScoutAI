@@ -24,8 +24,10 @@ class CodeIndexRepository:
         """Creates all tables, triggers, and indexes. This operation is idempotent."""
         # Ensure directory exists
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return None
+        with connection as conn:
             cursor = conn.cursor()
 
             # Create metadata table
@@ -137,9 +139,13 @@ class CodeIndexRepository:
             _ = cursor.execute("CREATE INDEX IF NOT EXISTS idx_indexed_files_hash ON indexed_files(file_hash)")
 
             conn.commit()
+        return None
 
-    def _get_connection(self) -> sqlite3.Connection:
+    def _get_connection(self) -> sqlite3.Connection | None:
         """Get and configure a new SQLite connection with optimizations."""
+        if not self.index_exists():
+            return None
+
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
 
@@ -155,9 +161,12 @@ class CodeIndexRepository:
     def insert_symbols(self, symbols: list[CodeSymbol]) -> None:
         """Insert a batch of symbols using a transaction."""
         if not symbols:
-            return
+            return None
+        connection = self._get_connection()
+        if not connection:
+            return None
 
-        with self._get_connection() as conn:
+        with connection as conn:
             cursor = conn.cursor()
 
             for symbol in symbols:
@@ -191,24 +200,35 @@ class CodeIndexRepository:
                 )
 
             conn.commit()
+        return None
 
     def delete_symbols_by_file(self, file_path: str) -> None:
         """Delete all symbols for a given file."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return None
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("DELETE FROM code_index WHERE file_path = ?", (file_path,))
             conn.commit()
+        return None
 
     def count_symbols_by_file(self, file_path: str) -> int:
         """Count the number of symbols for a given file."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return 0
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("SELECT COUNT(*) as count FROM code_index WHERE file_path = ?", (file_path,))
             return cursor.fetchone()["count"]
 
     def search_fts(self, query: str, filters: dict[str, Any]) -> list[CodeSymbol]:
         """Perform a search against the FTS table with optional filters."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return []
+        with connection as conn:
             cursor = conn.cursor()
 
             # Build the FTS query
@@ -246,7 +266,10 @@ class CodeIndexRepository:
 
     def get_file_hash(self, file_path: str) -> str | None:
         """Retrieve the stored hash for a file."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return None
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("SELECT file_hash FROM indexed_files WHERE file_path = ?", (file_path,))
             row = cursor.fetchone()
@@ -254,7 +277,10 @@ class CodeIndexRepository:
 
     def update_file_tracking(self, file_path: str, file_hash: str, symbol_count: int) -> None:
         """Update file tracking information."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return None
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute(
                 """
@@ -264,10 +290,16 @@ class CodeIndexRepository:
                 (file_path, file_hash, symbol_count, datetime.now()),
             )
             conn.commit()
+        return None
 
     def get_index_stats(self) -> IndexStats:
         """Retrieve index statistics."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return IndexStats(
+                total_symbols=0, total_files=0, symbols_by_type={}, symbols_by_language={}, last_updated=None
+            )
+        with connection as conn:
             cursor = conn.cursor()
 
             # Get total symbols
@@ -319,7 +351,10 @@ class CodeIndexRepository:
         Returns:
             list of symbol type strings
         """
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return []
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("SELECT DISTINCT symbol_type FROM code_index ORDER BY symbol_type")
             rows = cursor.fetchall()
@@ -327,7 +362,10 @@ class CodeIndexRepository:
 
     def get_indexed_files(self) -> list[dict[str, Any]]:
         """Retrieve all file paths and hashes."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return []
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("""
                 SELECT file_path, file_hash, symbol_count, last_indexed
@@ -342,13 +380,17 @@ class CodeIndexRepository:
         If the database file does not exist, this method does nothing.
         """
         if not self.index_exists():
-            return
+            return None
 
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return None
+        with connection as conn:
             cursor = conn.cursor()
             _ = cursor.execute("DELETE FROM code_index")
             _ = cursor.execute("DELETE FROM indexed_files")
             conn.commit()
+        return None
 
     def index_exists(self) -> bool:
         """
@@ -361,7 +403,10 @@ class CodeIndexRepository:
 
     def validate_schema(self) -> bool:
         """Check if the database schema is valid."""
-        with self._get_connection() as conn:
+        connection = self._get_connection()
+        if not connection:
+            return False
+        with connection as conn:
             cursor = conn.cursor()
 
             # Check if required tables exist

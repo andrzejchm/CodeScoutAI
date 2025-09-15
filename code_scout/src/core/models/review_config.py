@@ -1,7 +1,6 @@
 from enum import Enum
 
 from core.interfaces.langchain_review_tool import LangChainReviewTool
-from src.core.models.review_finding import Severity, Category
 
 
 class ReviewType(str, Enum):
@@ -11,7 +10,7 @@ class ReviewType(str, Enum):
     STYLE = "style"
     BEST_PRACTICES = "best_practices"
     ARCHITECTURE = "architecture"
-    REFACTORING = "refactoring"
+    REFACTORING = "reFACTORING"
 
 
 class ReviewConfig:
@@ -27,6 +26,8 @@ class ReviewConfig:
     banned_severities: list[str] | None = None
     allowed_categories: list[str] | None = None
     banned_categories: list[str] | None = None
+    additional_review_guidelines_file_path: str | None = None
+    additional_review_guidelines_content: str | None = None
 
     def __init__(  # noqa: PLR0913
         self,
@@ -40,6 +41,8 @@ class ReviewConfig:
         banned_severities: list[str] | None = None,
         allowed_categories: list[str] | None = None,
         banned_categories: list[str] | None = None,
+        additional_review_guidelines_file_path: str | None = None,
+        additional_review_guidelines_content: str | None = None,
     ):
         self.langchain_tools = langchain_tools
         self.show_code_excerpts = show_code_excerpts
@@ -51,3 +54,5 @@ class ReviewConfig:
         self.banned_severities = banned_severities
         self.allowed_categories = allowed_categories
         self.banned_categories = banned_categories
+        self.additional_review_guidelines_file_path = additional_review_guidelines_file_path
+        self.additional_review_guidelines_content = additional_review_guidelines_content

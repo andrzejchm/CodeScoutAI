@@ -5,6 +5,7 @@ from langchain_core.tools import BaseTool, tool  # pyright: ignore[reportUnknown
 from core.code_index.code_index_config import CodeIndexConfig
 from core.code_index.code_index_manager import CodeIndexManager
 from core.code_index.models import CodeIndexQuery, CodeSymbol
+from core.interfaces.diff_provider import DiffProvider
 from core.interfaces.langchain_review_tool import LangChainReviewTool
 from core.models.code_diff import CodeDiff
 
@@ -25,7 +26,7 @@ class SearchCodeIndexTool(LangChainReviewTool):
         self.db_path: str = db_path
 
     @override
-    def get_tool(self, diffs: list[CodeDiff]) -> BaseTool | None:
+    def get_tool(self, diffs: list[CodeDiff], diff_provider: DiffProvider) -> BaseTool | None:
         """
         Create code index search tool configured for the given diffs.
 

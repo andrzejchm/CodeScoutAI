@@ -17,3 +17,17 @@ class DiffProvider(ABC):
         (e.g., from a Git repository, a file system, an API).
         """
         pass
+
+    @abstractmethod
+    def get_file_contents_after_change(self, file_path: str) -> str | None:
+        """
+        Retrieves the contents of the file after the change.
+        """
+        pass
+
+    @abstractmethod
+    def get_file_contents_before_change(self, file_path: str) -> str | None:
+        """
+        Retrieves the contents of the file before the change.
+        """
+        pass

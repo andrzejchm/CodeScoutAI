@@ -1,13 +1,15 @@
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
+from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
-from core.tools.file_content_tool import FileContentTool
+from core.tools.file_content_before_change_tool import FileContentBeforeChangeTool
 from core.utils.diff_parser import parse_diff_string
 
 
@@ -24,6 +26,16 @@ class CustomFakeChatModel(FakeListChatModel):
         # It should return a runnable, but for this test, we just need to avoid NotImplementedError
 
         return self
+
+
+@pytest.fixture
+def diff_provider() -> DiffProvider:
+    """Provides a mock DiffProvider that returns predefined diffs."""
+    mock_provider = MagicMock(spec=DiffProvider)
+
+    mock_provider.get_diff.return_value = []
+
+    return mock_provider
 
 
 @pytest.fixture
@@ -102,13 +114,17 @@ rename to code_scout/src/cli/cli_formatter_2.py
     )
 
 
-def test_basic_review_chain_with_tools(mock_llm: CustomFakeChatModel, sample_code_diff: CodeDiff) -> None:
+def test_basic_review_chain_with_tools(
+    mock_llm: CustomFakeChatModel,
+    sample_code_diff: CodeDiff,
+    diff_provider: DiffProvider,
+) -> None:
     """Test BasicReviewChain with LangChain tools enabled."""
     config = ReviewConfig(
-        langchain_tools=[FileContentTool()],
+        langchain_tools=[FileContentBeforeChangeTool()],
         max_tool_calls_per_review=5,
     )
-    chain = BasicReviewChain(config)
+    chain = BasicReviewChain(config=config, diff_provider=diff_provider)
 
     result: ReviewResult = chain.review([sample_code_diff], mock_llm)
 
@@ -129,7 +145,11 @@ def test_basic_review_chain_with_tools(mock_llm: CustomFakeChatModel, sample_cod
     assert len(findings) > 0  # This confirms the LLM was called and processed
 
 
-def test_basic_review_chain_without_tools(mock_llm_no_tools: CustomFakeChatModel, sample_code_diff: CodeDiff) -> None:
+def test_basic_review_chain_without_tools(
+    mock_llm_no_tools: CustomFakeChatModel,
+    sample_code_diff: CodeDiff,
+    diff_provider: DiffProvider,
+) -> None:
     """Test BasicReviewChain without LangChain tools enabled (agent still used)."""
 
     # The type of `responses` is `list[str]`, so `replace` is a valid method on its elements.
@@ -143,7 +163,7 @@ def test_basic_review_chain_without_tools(mock_llm_no_tools: CustomFakeChatModel
         langchain_tools=[],  # No tools provided
     )
 
-    chain = BasicReviewChain(config)
+    chain = BasicReviewChain(config=config, diff_provider=diff_provider)
 
     result: ReviewResult = chain.review([sample_code_diff], mock_llm_no_tools)
 

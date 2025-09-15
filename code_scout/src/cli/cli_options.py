@@ -195,6 +195,7 @@ def banned_severities_option() -> list[str]:
     return cli_option(
         param_decls=["--ban-severity"],
         help="A list of severities to exclude (e.g., critical, major).",
+        env_var_name="CODESCOUT_BANNED_REVIEW_SEVERITIES",
         is_list=True,
     )
 
@@ -212,4 +213,13 @@ def banned_categories_option() -> list[str]:
         param_decls=["--ban-category"],
         help="A list of categories to exclude (e.g., security, performance).",
         is_list=True,
+    )
+
+
+def additional_review_guidelines_file_option() -> str | None:
+    return cli_option(
+        param_decls=["--additional-guidelines-file"],
+        env_var_name="CODESCOUT_ADDITIONAL_GUIDELINES_FILE",
+        help="Path to a file containing additional guidelines for the AI to consider during the review.",
+        required=False,
     )

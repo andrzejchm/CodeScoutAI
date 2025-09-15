@@ -7,10 +7,11 @@ from cli.code_scout_context import CodeScoutContext
 from core.diff_providers.github_diff_provider import GitHubDiffProvider
 from core.llm_providers.langchain_provider import LangChainProvider
 from core.services.code_review_agent import CodeReviewAgent
-from core.tools.file_content_tool import FileContentTool
-from core.tools.search_code_index_tool import SearchCodeIndexTool
+from core.tools.file_content_after_change_tool import FileContentAfterChangeTool
+from core.tools.file_content_before_change_tool import FileContentBeforeChangeTool
 from src.cli.cli_formatter import CliFormatter
 from src.cli.cli_options import (
+    additional_review_guidelines_file_option,
     allowed_categories_option,
     allowed_severities_option,
     banned_categories_option,
@@ -46,6 +47,7 @@ def _perform_review(
     banned_severities: list[str],
     allowed_categories: list[str],
     banned_categories: list[str],
+    additional_review_guidelines_file: str | None,
 ) -> None:
     """
     Private method to perform the actual code review logic.
@@ -61,15 +63,30 @@ def _perform_review(
             github_token=github_token,
         )
 
+        additional_guidelines_content: str | None = None
+        if additional_review_guidelines_file:
+            try:
+                with open(additional_review_guidelines_file, "r") as f:
+                    additional_guidelines_content = f.read()
+            except FileNotFoundError:
+                handle_cli_exception(
+                    FileNotFoundError(f"Guidelines file not found: {additional_review_guidelines_file}"),
+                    message="Error reading guidelines file",
+                )
+            except Exception as e:
+                handle_cli_exception(e, message=f"Error reading guidelines file {additional_review_guidelines_file}")
+
         review_config = ReviewConfig(
             langchain_tools=[
-                FileContentTool(),
-                SearchCodeIndexTool(),
+                FileContentBeforeChangeTool(),
+                FileContentAfterChangeTool(),
             ],
             allowed_severities=allowed_severities,
             banned_severities=banned_severities,
             allowed_categories=allowed_categories,
             banned_categories=banned_categories,
+            additional_review_guidelines_file_path=additional_review_guidelines_file,
+            additional_review_guidelines_content=additional_guidelines_content,
         )
 
         review_agent = CodeReviewAgent(
@@ -99,6 +116,7 @@ def review_pr(
     banned_severities: list[str] = banned_severities_option(),
     allowed_categories: list[str] = allowed_categories_option(),
     banned_categories: list[str] = banned_categories_option(),
+    additional_review_guidelines_file: str | None = additional_review_guidelines_file_option(),
 ) -> None:
     """
     Review a specific pull request from a GitHub repository.
@@ -113,6 +131,7 @@ def review_pr(
         banned_severities,
         allowed_categories,
         banned_categories,
+        additional_review_guidelines_file,
     )
 
 
@@ -126,6 +145,7 @@ def interactive_review(
     banned_severities: list[str] = banned_severities_option(),
     allowed_categories: list[str] = allowed_categories_option(),
     banned_categories: list[str] = banned_categories_option(),
+    additional_review_guidelines_file: str | None = additional_review_guidelines_file_option(),
 ) -> None:
     echo_info(message=f"Starting github interactive review for {repo_owner}/{repo_name}")
     try:
@@ -167,6 +187,7 @@ def interactive_review(
                 banned_severities=banned_severities,
                 allowed_categories=allowed_categories,
                 banned_categories=banned_categories,
+                additional_review_guidelines_file=additional_review_guidelines_file,
             )
         else:
             echo_warning(f"Invalid action selected: {selected_action}")

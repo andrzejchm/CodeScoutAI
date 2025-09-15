@@ -9,6 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent  # pyright: ignore[reportUnknownVariableType]
 
 from cli.cli_utils import echo_debug
+from core.interfaces.diff_provider import DiffProvider
 from core.models.code_diff import CodeDiff
 from core.models.review_config import ReviewConfig
 from core.models.review_finding import Category, ReviewFinding, Severity
@@ -25,8 +26,10 @@ class BasicReviewChain:
     def __init__(
         self,
         config: ReviewConfig,
+        diff_provider: DiffProvider,
     ):
         self.config: ReviewConfig = config
+        self.diff_provider = diff_provider
 
     def get_chain_name(self) -> str:
         return "Basic review"
@@ -53,33 +56,37 @@ class BasicReviewChain:
         """Invoke the LLM with the structured code diffs using an agent executor."""
 
         tools = self._get_tools(diffs)
-        system_message_content = self._get_system_message()
+        system_message_content = self._get_system_message(
+            additional_guidelines_content=self.config.additional_review_guidelines_content,
+            additional_guidelines_file_path=self.config.additional_review_guidelines_file_path,
+        )
 
-        agent: CompiledStateGraph = create_react_agent(model=llm, tools=tools)  # pyright: ignore[reportMissingTypeArgument, reportUnknownVariableType]
+        agent: CompiledStateGraph = create_react_agent(  # pyright: ignore[reportMissingTypeArgument, reportUnknownVariableType]
+            model=llm,
+            tools=tools,
+            prompt=SystemMessage(content=system_message_content),
+        )
 
         echo_debug(f"Executing agent with tools: {[tool.name for tool in tools]}")
 
         diff_contents = f"{'\n'.join([d.llm_repr for d in diffs])}"
-        echo_debug(f"system message:\n{system_message_content}")
-        echo_debug("======================================")
         # noinspection PyTypeChecker
         result: dict[str, Any] = agent.invoke(
             {
                 "messages": [
-                    SystemMessage(content=system_message_content),
                     HumanMessage(content=diff_contents),
                 ],
             }
         )
 
         last_response = self._extract_content_from_result(result)
-        echo_debug(f"Agent response: {last_response}")
+        echo_debug(f"Agent response: {last_response.content if last_response else ''}")
         return last_response
 
     def _get_tools(self, diffs: list[CodeDiff]) -> list[BaseTool]:
         tools: list[BaseTool] = []
         for tool_instance in self.config.langchain_tools:
-            tool = tool_instance.get_tool(diffs)
+            tool = tool_instance.get_tool(diffs, self.diff_provider)
             if tool:
                 tools.append(tool)
         return tools
@@ -89,8 +96,12 @@ class BasicReviewChain:
         # print only the type of message
         echo_debug(f"Agent result messages: {[type(m).__name__ for m in result_messages] if result_messages else []}")
         if isinstance(result_messages, list) and result_messages:
+            system_message = result_messages[0]
+            if isinstance(system_message, SystemMessage):
+                echo_debug(f"System message: {system_message.content}")
             last_message = result_messages[-1]
             if isinstance(last_message, AIMessage):
+                echo_debug(f"tools used: {last_message.tool_calls}")
                 return last_message
         return None
 
@@ -210,7 +221,9 @@ class BasicReviewChain:
             tool_name=self.get_chain_name(),
         )
 
-    def _get_system_message(self) -> str:
+    def _get_system_message(
+        self, additional_guidelines_content: str | None, additional_guidelines_file_path: str | None
+    ) -> str:
         """Get the system message for the LLM, updated for structured diffs."""
         severity_values = ", ".join([s.value for s in Severity])
         category_values = ", ".join([c.value for c in Category])
@@ -236,16 +249,31 @@ class BasicReviewChain:
         if filter_prompt_section:
             filter_prompt_section = f"\n{filter_prompt_section}\n"
 
+        additional_guidelines_text = ""
+        if additional_guidelines_content:
+            file_info = f" from file '{additional_guidelines_file_path}'" if additional_guidelines_file_path else ""
+            additional_guidelines_text = (
+                f"Here are some additional guidelines to follow{file_info}:\n{additional_guidelines_content}"
+            )
+
         return f"""
 You are an expert code reviewer. Your role is to provide high-quality, actionable feedback.
 Analyze the provided code changes, which are given as a JSON array of file diffs.
 Each file diff contains a list of 'hunks', representing a block of changes.
 For each hunk, you will see the line numbers and the content of the changes.
+
+## TOOLS:
+The code hunks might not provide the whole context for you to perform proper code review, hence use
+the tools available to you to get more context about the codebase to better assess the changes.
+
 {filter_prompt_section}
+
 CRITICAL GUIDELINES:
 - Your response MUST be ONLY a valid JSON array of finding objects.
 - Each finding must correlate to a specific hunk.
-- For `line_number`, use the `target_line_no` of the first relevant line in the hunk.
+- for line number, see the beginning of each line in hunk as it contains the line numbers.
+- remember you have access to various tools to get more context if needed. just use the mentioned tools whenever something is not clear
+- DO NOT ASSUME STUFF THAT IS NOT IN THE CODE DIFF, IF YOU NEED MORE CONTEXT, ASK FOR IT USING THE TOOLS AVAILABLE TO YOU
 
 OUTPUT FORMAT:
 Each finding must be a JSON object with these fields:
@@ -269,4 +297,5 @@ Example response:
   }}
 ]
 ```
+{additional_guidelines_text}
         """

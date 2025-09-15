@@ -40,6 +40,16 @@ class GitDiffProvider(DiffProvider):
             raise ValueError("Repository path cannot be empty.")
 
     @override
+    def get_file_contents_after_change(self, file_path: str) -> str | None:
+        repo = git.Repo(path=self.repo_path)
+        return self._read_committed_file_content(repo, file_path, commit_ref=self.source)
+
+    @override
+    def get_file_contents_before_change(self, file_path: str) -> str | None:
+        repo = git.Repo(path=self.repo_path)
+        return self._read_committed_file_content(repo, file_path, commit_ref=self.target)
+
+    @override
     def get_diff(self) -> list[CodeDiff]:
         repo = git.Repo(path=self.repo_path)
         self._fetch_origin(repo)  # Fetch origin before getting the diff
@@ -186,7 +196,7 @@ class GitDiffProvider(DiffProvider):
                     with open(full_path, "r", encoding="utf-8", errors="replace") as f:
                         return f.read()
                 return None
-            return self._read_committed_file_content(repo, file_path)
+            return self.get_file_contents_after_change(file_path)
 
     def _read_staged_file_content(self, file_path: str) -> str | None:
         """Read file content from working directory for staged files."""
@@ -196,12 +206,15 @@ class GitDiffProvider(DiffProvider):
                 return f.read()
         return None
 
-    def _read_committed_file_content(self, repo: git.Repo, file_path: str) -> str | None:
-        """Read file content from Git commit for committed files."""
+    # ai! is this method properly allow me to get file contents at given commit even though that commit didnt chagne that file? i want to be able to verify file contents at any given commit
+    def _read_committed_file_content(self, repo: git.Repo, file_path: str, commit_ref: str) -> str | None:
+        """Read file content from Git at a specific commit reference."""
         try:
-            target_commit = repo.commit(self.target)
-            file_content = target_commit.tree[file_path].data_stream.read()  # type: ignore
-            return file_content.decode("utf-8", errors="replace")  # type: ignore
+            # Get the commit object
+            commit = repo.commit(commit_ref)
+            # Access the file content from the commit's tree
+            blob = commit.tree / file_path
+            return blob.data_stream.read().decode("utf-8", errors="replace")
         except (KeyError, GitCommandError):
-            echo_warning(f"File not found in target commit: {file_path}")
+            echo_warning(f"File '{file_path}' not found in commit '{commit_ref}'")
             return None

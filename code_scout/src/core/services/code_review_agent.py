@@ -11,8 +11,8 @@ from core.models.review_config import ReviewConfig
 from core.models.review_finding import ReviewFinding
 from core.models.review_result import ReviewResult
 from core.review_chains.basic_review_chain import BasicReviewChain
-from core.tools.file_content_tool import FileContentTool
-from core.tools.search_code_index_tool import SearchCodeIndexTool
+from core.tools.file_content_after_change_tool import FileContentAfterChangeTool
+from core.tools.file_content_before_change_tool import FileContentBeforeChangeTool
 from src.cli.cli_utils import echo_error, echo_info, show_spinner
 from src.cli.code_scout_context import CodeScoutContext
 
@@ -44,8 +44,8 @@ class CodeReviewAgent:
         self.cli_context = cli_context
         self.config = config or ReviewConfig(
             langchain_tools=[
-                FileContentTool(),
-                SearchCodeIndexTool(),
+                FileContentBeforeChangeTool(),
+                FileContentAfterChangeTool(),
             ],
             show_code_excerpts=True,
             context_lines_before=3,
@@ -89,7 +89,10 @@ class CodeReviewAgent:
         diffs: list[CodeDiff],
     ) -> ReviewResult | None:
         """Execute all enabled review chains."""
-        chain = BasicReviewChain(config=self.config)
+        chain = BasicReviewChain(
+            config=self.config,
+            diff_provider=self.diff_provider,
+        )
         try:
             with show_spinner(label=f"Running {chain.get_chain_name()}..."):
                 review_result = chain.review(diffs, self.llm)

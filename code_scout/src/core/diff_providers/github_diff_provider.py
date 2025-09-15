@@ -35,6 +35,16 @@ class GitHubDiffProvider(DiffProvider):
         self.github_service = GitHubService(github_token, repo_owner, repo_name)
 
     @override
+    def get_file_contents_after_change(self, file_path: str) -> str | None:
+        pull = self.github_service.get_pull_request(self.pr_number)
+        return self.github_service.get_file_content(file_path, pull.head.sha)
+
+    @override
+    def get_file_contents_before_change(self, file_path: str) -> str | None:
+        pull = self.github_service.get_pull_request(self.pr_number)
+        return self.github_service.get_file_content(file_path, pull.base.sha)
+
+    @override
     def get_diff(self) -> list[CodeDiff]:
         pull = self.github_service.get_pull_request(self.pr_number)
 
